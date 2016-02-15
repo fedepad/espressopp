@@ -495,7 +495,7 @@ namespace espressopp {
            stat = req.wait();
            system.comm->send<int>(0, DEFAULT_TAG, ids, myN);
            req2 = system.comm->irecv<int>(0, DEFAULT_TAG, tmp);
-           stat2 = req.wait();
+           stat2 = req2.wait();
            system.comm->send<size_t>(0, DEFAULT_TAG, types, myN);
            system.comm->send<real>(0, DEFAULT_TAG, coordinates, 3*myN);
            system.comm->send<real>(0, DEFAULT_TAG, velocities, 3*myN);
