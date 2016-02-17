@@ -59,11 +59,7 @@ namespace espressopp {
           
           Real3D Li = system->bc->getBoxL();
           
-
-          //python::list pids_part = system->storage->getRealParticleIDs();
-
           // for noncubic simulation boxes
-          //TODO: let's decide if you want these hanging 0.0s as in the default repo version or get rid!
           myfile << Li[0] * length_factor << "  0.0  0.0  0.0  "<< 
                   Li[1] * length_factor << "  0.0  0.0  0.0  "<< Li[2] * length_factor;
           
