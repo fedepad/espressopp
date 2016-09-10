@@ -90,7 +90,7 @@ namespace espressopp {
 
       void write();
       void read();  
-      void sort_by_pid();
+      //void sort_by_pid();
 
 
 

@@ -318,10 +318,10 @@ namespace espressopp {
 
 
 		hid_t plist_id = H5Pcreate(H5P_DATASET_XFER); // keep it, h5md doesn't do parallel
-		H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+		H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE); // important, include in h5md
 		//H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);  // to write datasets independently, usually not suggested!
 
-		status = H5Dwrite(dset_id, particle_record, memspace, filespace, plist_id, particles_u); // check h5md
+		status = H5Dwrite(dset_id, particle_record, memspace, filespace, plist_id, particles_u); // check h5md: for parallel we have to pass preference list defined plist_id
 
 		assert( status != -1);
 
