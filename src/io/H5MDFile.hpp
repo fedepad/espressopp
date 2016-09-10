@@ -42,6 +42,7 @@ namespace espressopp {
               shared_ptr<integrator::MDIntegrator> _integrator,
               std::string _file_name,
 			  int _iomode,
+              boost::python::list _data_to_store,
               bool _unfolded,
               real _length_factor,
               std::string _length_unit,
@@ -50,10 +51,13 @@ namespace espressopp {
                         integrator(_integrator),
                         file_name( _file_name ),
 						iomode(_iomode),
+                        data_to_store(_data_to_store),
                         unfolded(_unfolded),
                         length_factor(_length_factor),
                         append(_append){
         setLengthUnit(_length_unit);
+        //init_table(table_store);
+
 
         if (iomode == 1 || iomode == 0) {
 
@@ -85,6 +89,10 @@ namespace espressopp {
 
 
       void write();
+      void read();  
+      void sort_by_pid();
+
+
 
       std::string getFilename(){return file_name;}
       void setFilename(std::string v){file_name = v;}
@@ -94,6 +102,56 @@ namespace espressopp {
       void setUnfolded(bool v){unfolded = v;}
       bool getAppend(){return append;}
       void setAppend(bool v){append = v;}
+
+        // data to store setters and getters...
+       void init_table(table_init){
+       
+        table_init.all = 0;
+        table_init.pid = 0;
+        table_init.type = 0;
+        table_init.mass = 0;
+        table_init.charge = 0;
+        table_init.lambda = 0;
+        table_init.drift = 0;
+        table_init.lambdaDeriv = 0;
+        table_init.state = 0;
+        table_init.position = 0;
+        table_init.velocity = 0;
+        table_init.force = 0;
+       
+       };
+
+       std::set<std::string> getSetfrompythonlist(boost::python::list data_to_store) {
+       
+        return python_list_to_set(data_to_store);  
+       
+       }; 
+
+       void set_init_table(table_init){
+
+        std::set<std::string> ciao;
+
+        if (ciao.find("all") != ciao.end())
+        {
+            table_init.all = 1;
+        } else {
+
+            if (ciao.find("pid") != ciao.end()) {table_init.pid = 1;}
+            if (ciao.find("type") != ciao.end()) {table_init.type = 1;}
+            if (ciao.find("mass") != ciao.end()) {table_init.mass = 1;}
+            if (ciao.find("charge") != ciao.end()) {table_init.charge = 1;}
+            if (ciao.find("lambda") != ciao.end()) {table_init.lambda = 1;}
+            if (ciao.find("drift") != ciao.end()) {table_init.drift = 1;}
+            if (ciao.find("lambdaDeriv") != ciao.end()) {table_init.lambdaDeriv = 1;}
+            if (ciao.find("state") != ciao.end()) {table_init.state = 1;}
+            if (ciao.find("position") != ciao.end()) {table_init.position = 1;}
+            if (ciao.find("velocity") != ciao.end()) {table_init.velocity = 1;}
+            if (ciao.find("force") != ciao.end()) {table_init.force = 1;}
+
+        }
+
+
+       };    
 
       std::string getLengthUnit(){return length_unit;}
       void setLengthUnit(std::string v){
@@ -123,7 +181,23 @@ namespace espressopp {
 
       std::string file_name;
       int iomode; // 0: serial, 1: N-to-1, 2: N-to-N; real 0 not there now
-
+      boost::python::list data_to_store;  // python list: can pass either 'all' and all particle data structur einfo
+      // is store or ['pid', 'mass', 'position'] and only pid, mass and position of the particles will be stored
+      struct { // what would be the advantage to have it as bools?
+        int all;
+        int pid;
+        int type;
+        int mass;
+        int charge;
+        int lambda;
+        int drift;
+        int lambdaDeriv;
+        int state;
+        int position;
+        int velocity;
+        int force;
+      } table_init; 
+      
       bool unfolded;  // one can choose folded or unfolded coordinates, by default it is folded
       bool append; //append to existing trajectory file or create a new one
       real length_factor;  // for example

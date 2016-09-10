@@ -56,7 +56,56 @@ using namespace std;
 namespace espressopp {
   namespace io {
 
-    void H5MDFile::write_n_to_1(){
+
+    template <typename T>
+        std::vector<T> python_list_to_vector (
+                    const boost::python::object& obj
+                    )
+        {
+                std::vector<T> vect(len(obj));
+                    for (unsigned long i = 0; i < vect.size(); ++i)
+                            {
+                                        vect[i] = boost::python::extract<T>(obj[i]);
+                            }
+                        return vect;
+        }
+
+
+    // if values in a list are unique we can save the content in a set which allows for logN search (std::vector instead should be sorted...NO!)
+    template <typename T>
+        std::set<T> python_list_to_set (
+                    const boost::python::object& obj
+                    )
+        {
+                std::set<T> setn(len(obj));
+                    for (unsigned long i = 0; i < setn.size(); ++i)
+                            {
+                                        //vect[i] = boost::python::extract<T>(obj[i]);
+                                        setn.insert(boost::python::extract<T>(obj[i]));
+                            }
+                        return setn;
+        }
+
+
+   template <typename T>
+       boost::python::list vector_to_python_list (
+                   const std::vector<T>& vect
+                   )
+
+       {
+               boost::python::list obj;
+                   for (unsigned long i = 0; i < vect.size(); ++i)
+                               obj.append(vect[i]);
+                       return obj;
+       }
+
+
+
+
+
+   
+   
+   void H5MDFile::write_n_to_1(){
 
 
     	shared_ptr<System> system = getSystem();
@@ -103,7 +152,13 @@ namespace espressopp {
         const char* hint_stripe = "striping_unit";
         const char* stripe_value = "4194304";
         MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
-		// create type for array-like objects, like coordinates, vel and force
+		
+        // my detect fs and set appropriate MPI hints!
+        
+        
+        
+        
+        // create type for array-like objects, like coordinates, vel and force
 		hsize_t dimearr[1] = {3};
 		hid_t loctype = H5Tarray_create1(H5T_NATIVE_DOUBLE, 1, dimearr, NULL);
 
@@ -120,7 +175,8 @@ namespace espressopp {
 		H5Tinsert(particle_record, "x", HOFFSET(particle_info,x), loctype);
 		H5Tinsert(particle_record, "v", HOFFSET(particle_info,v), loctype);
 		H5Tinsert(particle_record, "force", HOFFSET(particle_info,force), loctype);
-
+        // create the hdf5 data type to store according to user preferences
+        //
 
 
 		hid_t acc_template;
@@ -136,8 +192,23 @@ namespace espressopp {
 
 		acc_template = H5Pcreate(H5P_FILE_ACCESS);
 		H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
-		file_id = H5Fcreate(ch_f_name, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template);
+		file_id = H5Fcreate(ch_f_name, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template); // change this to create the file with H5MD create file call
+		//get version;
+        //Version();
+        //std::string espressopp_version = Version.info();
+        
+        
+        // h5md_file h5md_create_file (ch_f_name, author_or_username_on_the_machine, author_email_default_to_null, prog_name, espressopp_version.c_str())
 		assert(file_id > 0);
+
+        // h5md_file file;
+        // h5md_particles_group particles;
+        // particles = h5md_create_particles_group(file, "atoms");
+        // // Create a time-dependent dataset
+        //     // There is no data yet in "pos"
+        // dims[0] = myN;
+        // dims[1] = 3;
+        // particles.position = h5md_create_time_data(particles.group, "position", 2, dims, H5T_NATIVE_DOUBLE, NULL);
 
 		H5Pclose(acc_template);
 
@@ -213,13 +284,15 @@ namespace espressopp {
         dimsf[0] = totalN;
         dimsf[1] = 1;
 
-		filespace = H5Screate_simple(RANK, dimsf, NULL);
+		filespace = H5Screate_simple(RANK, dimsf, NULL); //create filespace: check h5md call
 
 		sprintf(dataSetName, "Particles");
-		dset_id = H5Dcreate2(file_id, dataSetName, particle_record, filespace,
-																H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-		H5Sclose(filespace);
+		dset_id = H5Dcreate2(file_id, dataSetName, particle_record, filespace, 
+                H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT); // check h5md dataset creation func call!
+        
+        H5Sclose(filespace);
 
+        // logic to write a file contiguosly!
 		int sumup = 0;
 		count[0] = myN;
 		count[1] = dimsf[1];
@@ -240,15 +313,15 @@ namespace espressopp {
 
 
 		filespace = H5Dget_space(dset_id);
-		H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL);
+		H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL); // check with H5MD
 
 
 
-		hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+		hid_t plist_id = H5Pcreate(H5P_DATASET_XFER); // keep it, h5md doesn't do parallel
 		H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-		//H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);  // to write datasets independently
+		//H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);  // to write datasets independently, usually not suggested!
 
-		status = H5Dwrite(dset_id, particle_record, memspace, filespace, plist_id, particles_u);
+		status = H5Dwrite(dset_id, particle_record, memspace, filespace, plist_id, particles_u); // check h5md
 
 		assert( status != -1);
 
@@ -259,6 +332,7 @@ namespace espressopp {
 
 		H5Pclose(plist_id);
 		H5Fclose(file_id);
+        // h5md_close_file(h5md_file file)
 		//MPI_Info_free(&info);
 
 		delete [] ch_f_name;
