@@ -35,7 +35,8 @@
 
 namespace espressopp {
   namespace io{
-    struct info_table_ini{ // what would be the advantage to have it as bools?
+
+      struct info_table_ini{ // what would be the advantage to have it as bools?
         int all;
         int pid;
         int type;
@@ -49,7 +50,7 @@ namespace espressopp {
         int velocity;
         int force;
         info_table_ini() : all(), pid(), type(), mass(), charge(), lambda(), drift(), lambdaDeriv(), state(), position(), velocity(), force() {}
-    };
+        };
 
 
     class H5MDFile : public ParticleAccess {
