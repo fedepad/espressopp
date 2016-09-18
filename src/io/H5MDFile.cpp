@@ -57,56 +57,7 @@ namespace espressopp {
   namespace io {
 
 
-    template <typename T>
-        std::vector<T> python_list_to_vector (
-                    const boost::python::object& obj
-                    )
-        {
-                std::vector<T> vect(len(obj));
-                    for (unsigned long i = 0; i < vect.size(); ++i)
-                            {
-                                        vect[i] = boost::python::extract<T>(obj[i]);
-                            }
-                        return vect;
-        }
-
-
-    // if values in a list are unique we can save the content in a set which allows for logN search (std::vector instead should be sorted...NO!)
-    template <typename T>
-        std::set<T> python_list_to_set (
-                    const boost::python::object& obj
-                    )
-        {
-                std::set<T> setn(len(obj));
-                    for (unsigned long i = 0; i < setn.size(); ++i)
-                            {
-                                        //vect[i] = boost::python::extract<T>(obj[i]);
-                                        setn.insert(boost::python::extract<T>(obj[i]));
-                            }
-                        return setn;
-        }
-
-
-   template <typename T>
-       boost::python::list vector_to_python_list (
-                   const std::vector<T>& vect
-                   )
-
-       {
-               boost::python::list obj;
-                   for (unsigned long i = 0; i < vect.size(); ++i)
-                               obj.append(vect[i]);
-                       return obj;
-       }
-
-
-
-
-
-   
-   
    void H5MDFile::write_n_to_1(){
-
 
     	shared_ptr<System> system = getSystem();
     	char *ch_f_name = new char[file_name.length() + 1];
@@ -152,12 +103,12 @@ namespace espressopp {
         const char* hint_stripe = "striping_unit";
         const char* stripe_value = "4194304";
         MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
-		
+
         // my detect fs and set appropriate MPI hints!
-        
-        
-        
-        
+
+
+
+
         // create type for array-like objects, like coordinates, vel and force
 		hsize_t dimearr[1] = {3};
 		hid_t loctype = H5Tarray_create1(H5T_NATIVE_DOUBLE, 1, dimearr, NULL);
@@ -196,8 +147,8 @@ namespace espressopp {
 		//get version;
         //Version();
         //std::string espressopp_version = Version.info();
-        
-        
+
+
         // h5md_file h5md_create_file (ch_f_name, author_or_username_on_the_machine, author_email_default_to_null, prog_name, espressopp_version.c_str())
 		assert(file_id > 0);
 
@@ -287,9 +238,9 @@ namespace espressopp {
 		filespace = H5Screate_simple(RANK, dimsf, NULL); //create filespace: check h5md call
 
 		sprintf(dataSetName, "Particles");
-		dset_id = H5Dcreate2(file_id, dataSetName, particle_record, filespace, 
+		dset_id = H5Dcreate2(file_id, dataSetName, particle_record, filespace,
                 H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT); // check h5md dataset creation func call!
-        
+
         H5Sclose(filespace);
 
         // logic to write a file contiguosly!
@@ -540,11 +491,12 @@ namespace espressopp {
 
       using namespace espressopp::python;
 
-      class_<HDF5File, bases<ParticleAccess>, boost::noncopyable >
+      class_<H5MDFile, bases<ParticleAccess>, boost::noncopyable >
       ("io_H5MDFile", init< shared_ptr< System >,
                            shared_ptr< integrator::MDIntegrator >,
                            std::string,
 						   int,
+                           boost::python::list,
                            bool,
                            real,
                            std::string ,

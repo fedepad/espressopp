@@ -6,3 +6,4 @@ io
    
    espressopp.io.DumpGRO.rst
    espressopp.io.DumpXYZ.rst
+   espressopp.io.H5MDFile.rst

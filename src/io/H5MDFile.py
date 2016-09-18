@@ -19,7 +19,7 @@
 
 r"""
 *********************************************
-**HDF5File** - IO Object
+**H5MDFile** - IO Object
 *********************************************
 
 * `write()`
@@ -33,6 +33,12 @@ r"""
 
 * `iomode`
   Iomode: 0 serial, 1 Nto1, 2 NtoN
+
+* `data_to_store`
+  List containing the particle properties one wants to save: ['all'] saves the
+  all particle data struct, i.e. (pid, pos, vel, lambda, force, charge, mass,
+  etc.) or ['pid', 'mass', 'charge'] means only the pid,
+  mass and charge of each particle need to be saved. Default - ['all']
 
 * `unfolded`
   False if coordinates are folded, True if unfolded. By default - False
@@ -51,34 +57,35 @@ usage:
 
 writing down trajectory
 
->>> dump_conf_hdf5 = espressopp.io.HDF5File(system, integrator, filename='trajectory.xyz', iomode=1)
+>>> dump_conf_h5md = espressopp.io.H5MDFile(system, integrator, filename='trajectory.h5', iomode=1)
 >>> for i in range (200):
 >>>   integrator.run(10)
->>>   dump_conf_hdf5.write()
+>>>   dump_conf_h5md.write()
 
 writing down trajectory using ExtAnalyze extension
 
->>> dump_conf_hdf5 = espressopp.io.HDF5File(system, integrator, filename='trajectory.xyz', iomode=1)
->>> ext_analyze = espressopp.integrator.ExtAnalyze(dump_conf_xyz, 10)
+>>> dump_conf_h5md = espressopp.io.H5MDFile(system, integrator, filename='trajectory.h5', iomode=1, data_to_store=['all'])
+>>> ext_analyze = espressopp.integrator.ExtAnalyze(dump_conf_h5md, 10)
 >>> integrator.addExtension(ext_analyze)
 >>> integrator.run(2000)
 
-Both exapmles will give the same result: 200 configurations in trajectory .h5 file.
+Both examples will give the same result: 200 configurations in trajectory .h5 file.
 
 setting up length scale
 
 For example, the Lennard-Jones model for liquid argon with :math:`\sigma=0.34 [nm]`
 
->>> dump_conf_hdf5 = espressopp.io.HDF5File(system, integrator, filename='trj.h5', iomode=1, unfolded=False, length_factor=0.34, length_unit='nm', append=True)
+>>> dump_conf_h5md = espressopp.io.H5MDFile(system, integrator, filename='trj.h5', iomode=1, data_to_store=['pid', 'mass', 'velocity'], unfolded=False, length_factor=0.34, length_unit='nm', append=True)
 
 will produce trj.h5 with  in nanometers // Federico P. comment: what in nanometers? It's clear coordinate but please don't leave sentence hanging!
 
-.. function:: espressopp.io.HDF5File(system, integrator, filename, iomode, unfolded, length_factor, length_unit, append)
+.. function:: espressopp.io.H5MDFile(system, integrator, filename, iomode, data_to_store, unfolded, length_factor, length_unit, append)
 
         :param system:
         :param integrator:
         :param filename: (default: 'out.h5')
         :param iomode: (default: 1)
+        :param data_to_store: (default: ['all'])
         :param unfolded: (default: False)
         :param length_factor: (default: 1.0)
         :param length_unit: (default: 'LJ')
@@ -87,12 +94,13 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
         :type integrator:
         :type filename:
         :type iomode:
+        :type data_to_store:
         :type unfolded:
         :type length_factor: real
         :type length_unit:
         :type append:
 
-.. function:: espressopp.io.HDF5File.write()
+.. function:: espressopp.io.H5MDFile.write()
 
         :rtype:
 """
@@ -101,12 +109,12 @@ from espressopp.esutil import cxxinit
 from espressopp import pmi
 
 from espressopp.ParticleAccess import *
-from _espressopp import io_HDF5File
+from _espressopp import io_H5MDFile
 
-class HDF5FileLocal(ParticleAccessLocal, io_HDF5File):
+class H5MDFileLocal(ParticleAccessLocal, io_H5MDFile):
 
-  def __init__(self, system, integrator, filename='out.h5', iomode=1, unfolded=False, length_factor=1.0, length_unit='LJ', append=True):
-    cxxinit(self, io_HDF5File, system, integrator, filename, iomode, unfolded, length_factor, length_unit, append)
+  def __init__(self, system, integrator, filenam e='out.h5', iomode=1, data_to_store=['all'], unfolded=False, length_factor=1.0, length_unit='LJ', append=True):
+    cxxinit(self, io_H5MDFile, system, integrator, filename, iomode, data_to_store, unfolded, length_factor, length_unit, append)
 
   def write(self):
     if not pmi._PMIComm or pmi._MPIcomm.rank in pmi._PMIComm.getMPIcpugroup():
@@ -114,10 +122,10 @@ class HDF5FileLocal(ParticleAccessLocal, io_HDF5File):
 
 
 if pmi.isController :
-  class HDF5File(ParticleAccess):
+  class H5MDFile(ParticleAccess):
     __metaclass__ = pmi.Proxy
     pmiproxydefs = dict(
-      cls =  'espressopp.io.HDF5FileLocal',
+      cls =  'espressopp.io.H5MDFileLocal',
       pmicall = [ 'write' ],
-      pmiproperty = ['filename', 'iomode', 'unfolded', 'length_factor', 'length_unit', 'append']
+      pmiproperty = ['filename', 'iomode', 'data_to_store', 'unfolded', 'length_factor', 'length_unit', 'append']
     )

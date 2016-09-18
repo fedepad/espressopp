@@ -28,11 +28,29 @@
 #include "integrator/MDIntegrator.hpp"
 #include "io/FileBackup.hpp"
 #include "esutil/Error.hpp"
-
+#include "template_helpers.hpp"
 #include <string>
+#include <set>
+
 
 namespace espressopp {
   namespace io{
+    struct info_table_ini{ // what would be the advantage to have it as bools?
+        int all;
+        int pid;
+        int type;
+        int mass;
+        int charge;
+        int lambda;
+        int drift;
+        int lambdaDeriv;
+        int state;
+        int position;
+        int velocity;
+        int force;
+        info_table_ini() : all(), pid(), type(), mass(), charge(), lambda(), drift(), lambdaDeriv(), state(), position(), velocity(), force() {}
+    };
+
 
     class H5MDFile : public ParticleAccess {
 
@@ -56,7 +74,8 @@ namespace espressopp {
                         length_factor(_length_factor),
                         append(_append){
         setLengthUnit(_length_unit);
-        //init_table(table_store);
+        info_table_ini table_store;
+        set_init_table(table_store, data_to_store);
 
 
         if (iomode == 1 || iomode == 0) {
@@ -89,7 +108,7 @@ namespace espressopp {
 
 
       void write();
-      void read();  
+      void read();
       //void sort_by_pid();
 
 
@@ -103,33 +122,16 @@ namespace espressopp {
       bool getAppend(){return append;}
       void setAppend(bool v){append = v;}
 
-        // data to store setters and getters...
-       void init_table(table_init){
-       
-        table_init.all = 0;
-        table_init.pid = 0;
-        table_init.type = 0;
-        table_init.mass = 0;
-        table_init.charge = 0;
-        table_init.lambda = 0;
-        table_init.drift = 0;
-        table_init.lambdaDeriv = 0;
-        table_init.state = 0;
-        table_init.position = 0;
-        table_init.velocity = 0;
-        table_init.force = 0;
-       
+       std::set<std::string> getSetfrompythonlist(boost::python::list data_to_store) {
+
+        return python_list_to_set<std::string>(data_to_store);
+
        };
 
-       std::set<std::string> getSetfrompythonlist(boost::python::list data_to_store) {
-       
-        return python_list_to_set(data_to_store);  
-       
-       }; 
+       void set_init_table(info_table_ini table_init, boost::python::list initial_list){
 
-       void set_init_table(table_init){
+        std::set<std::string> ciao = getSetfrompythonlist(initial_list);
 
-        std::set<std::string> ciao;
 
         if (ciao.find("all") != ciao.end())
         {
@@ -151,7 +153,7 @@ namespace espressopp {
         }
 
 
-       };    
+       };
 
       std::string getLengthUnit(){return length_unit;}
       void setLengthUnit(std::string v){
@@ -183,21 +185,8 @@ namespace espressopp {
       int iomode; // 0: serial, 1: N-to-1, 2: N-to-N; real 0 not there now
       boost::python::list data_to_store;  // python list: can pass either 'all' and all particle data structur einfo
       // is store or ['pid', 'mass', 'position'] and only pid, mass and position of the particles will be stored
-      struct { // what would be the advantage to have it as bools?
-        int all;
-        int pid;
-        int type;
-        int mass;
-        int charge;
-        int lambda;
-        int drift;
-        int lambdaDeriv;
-        int state;
-        int position;
-        int velocity;
-        int force;
-      } table_init; 
-      
+      info_table_ini datas;
+
       bool unfolded;  // one can choose folded or unfolded coordinates, by default it is folded
       bool append; //append to existing trajectory file or create a new one
       real length_factor;  // for example
