@@ -1,5 +1,5 @@
 #  Copyright (C) 2016
-#      Max Planck Institute for Polymer Research & Johannes Gutenberg-Universitaet Mainz
+#      Max Planck Institute for Polymer Research & JGU Mainz
 #
 #  This file is part of ESPResSo++.
 #
@@ -23,7 +23,7 @@ r"""
 *********************************************
 
 * `write()`
-  write configuration to trajectory HDF5 file. By default filename is "out.xyz",
+  write configuration to trajectory H5MD file. By default filename is "out.xyz",
   coordinates are folded.
 
   Properties
