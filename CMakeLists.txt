@@ -163,12 +163,15 @@ endif()
 
 option(ENABLE_HDF5 "Enable HDF5 on by default, for optimized I/O" ON)
 if(ENABLE_HDF5)
-  find_package(HDF5 COMPONENTS C)  # on OSX need to specify the component otherwise it complains... Tested with Homebrew HDF5
+    # on OSX 10.11.4, LLVM 7.3.0, clang-703.0,31 need to specify the
+    # component (C here) otherwise it complains looking for the C++... 
+    # Tested with Homebrew HDF5
+    find_package(HDF5 COMPONENTS C)
   if(HDF5_FOUND)
     include_directories(${HDF5_INCLUDE_DIR})
     #set(_hdf5_libs hdf5 )
     add_definitions( -DHDF5_LAYER  )
-    add_definitions( -D_PARALLEL_V )
+    add_definitions( -DPARALLEL_V )
   else()  ## probably won't work this part, haven't tested!
   # we did not find it so we fetch it from the web, configure, compile, and link
     #include(ExternalProject)
