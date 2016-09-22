@@ -166,7 +166,7 @@ if(ENABLE_HDF5)
     # on OSX 10.11.4, LLVM 7.3.0, clang-703.0,31 need to specify the
     # component (C here) otherwise it complains looking for the C++... 
     # Tested with Homebrew HDF5
-    find_package(HDF5 COMPONENTS C)
+    find_package(HDF5 COMPONENTS C)  # from HDF5 1.8.16 needs to be: find_package(HDF5 COMPONENTS C REQUIRED SHARED/STATIC)
   if(HDF5_FOUND)
     include_directories(${HDF5_INCLUDE_DIR})
     #set(_hdf5_libs hdf5 )
