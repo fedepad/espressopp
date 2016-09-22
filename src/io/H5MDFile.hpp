@@ -28,15 +28,19 @@
 #include "integrator/MDIntegrator.hpp"
 #include "io/FileBackup.hpp"
 #include "esutil/Error.hpp"
-#include "template_helpers.hpp"
+#include "template_py_to_cpp_containers.hpp"
 #include <string>
 #include <set>
+
+#include <boost/python/def.hpp>
+#include <boost/python/module.hpp>
+#include <boost/python/args.hpp>
 
 
 namespace espressopp {
   namespace io{
 
-      struct info_table_ini{ // what would be the advantage to have it as bools?
+    struct info_table_ini{ // what would be the advantage to have it as bools?
         int all;
         int pid;
         int type;
@@ -50,7 +54,14 @@ namespace espressopp {
         int velocity;
         int force;
         info_table_ini() : all(), pid(), type(), mass(), charge(), lambda(), drift(), lambdaDeriv(), state(), position(), velocity(), force() {}
-        };
+    };
+
+
+    void read_H5MD();
+    void write_H5MD();
+
+
+
 
 
     class H5MDFile : public ParticleAccess {
@@ -109,7 +120,7 @@ namespace espressopp {
 
 
       void write();
-      void read();
+      void read(std::string filename);
       //void sort_by_pid();
 
 
@@ -184,8 +195,8 @@ namespace espressopp {
 
       std::string file_name;
       int iomode; // 0: serial, 1: N-to-1, 2: N-to-N; real 0 not there now
-      boost::python::list data_to_store;  // python list: can pass either 'all' and all particle data structur einfo
-      // is store or ['pid', 'mass', 'position'] and only pid, mass and position of the particles will be stored
+      boost::python::list data_to_store;  // python list: can pass either 'all' and all particle data structure info
+      // is stored or ['pid', 'mass', 'position'] and only pid, mass and position of the particles will be stored
       info_table_ini datas;
 
       bool unfolded;  // one can choose folded or unfolded coordinates, by default it is folded

@@ -26,8 +26,8 @@
 #include "System.hpp"
 #include "storage/DomainDecomposition.hpp"
 #include "bc/BC.hpp"
-#include "analysis/ConfigurationExt.hpp"
-#include "analysis/ConfigurationsExt.hpp"
+//#include "analysis/ConfigurationExt.hpp"
+//#include "analysis/ConfigurationsExt.hpp"
 #include "iterator/CellListIterator.hpp"
 
 #include "boost/mpi.hpp"
@@ -49,12 +49,59 @@
 //#include "H5Cpp.h"
 
 using namespace espressopp;
-using namespace espressopp::analysis;
+//using namespace espressopp::analysis;
 using namespace std;
+
+
+using namespace boost::python;
+
+
 
 
 namespace espressopp {
   namespace io {
+
+
+//   void read_H5MD(std::string filename) {
+//
+//
+//	   // check how many processes are involved (size)
+//	   // each rank reads a small part of the file
+//
+//
+//
+//
+//
+//
+//
+//   };
+//
+//   void write_H5MD() {
+//
+//
+//	   // check how many MPI ranks are involved
+//	   //
+//
+//
+//
+//
+//
+//
+//
+//
+//   };
+//
+//
+//   BOOST_PYTHON_MODULE(h5md_funcs)
+//   {
+//	   using namespace espressopp::python;
+//       def("read_h5md", read_H5MD, args("filename"), "read_h5md's docstring");
+//       def("read_h5md", write_H5MD, args(""), "read_h5md's docstring");
+//   }
+
+
+
+
 
 
    void H5MDFile::write_n_to_1(){

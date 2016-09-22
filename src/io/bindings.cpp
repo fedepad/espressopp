@@ -27,6 +27,7 @@
 #include "DumpGRO.hpp"
 #include "DumpGROAdress.hpp"
 #ifdef HDF5_LAYER
+	#include "H5MD.hpp"
     #include "H5MDFile.hpp"
 #endif
 #include "FileBackup.hpp"
@@ -38,6 +39,9 @@ namespace espressopp {
       DumpGRO::registerPython();
       DumpGROAdress::registerPython();
 #ifdef HDF5_LAYER
+      //namespace H5MD {
+      	  H5MD::registerPython();
+      //}
       H5MDFile::registerPython();
 #endif
     }
