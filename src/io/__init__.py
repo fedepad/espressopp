@@ -33,3 +33,8 @@ try:
   from espressopp.io.H5MDFile import *
 except ImportError:
   pass
+
+try:
+  from espressopp.io.H5MD import *
+except ImportError:
+  pass
