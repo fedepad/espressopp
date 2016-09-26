@@ -21,11 +21,12 @@
 
 // http://stackoverflow.com/questions/10056393/g-with-python-h-how-to-compile
 // http://realmike.org/blog/2012/07/08/embedding-python-tutorial-part-1/
-#include "H5MDFile.hpp"  // keep python.hpp on top
+#include "H5MDWriter.hpp"  // keep python.hpp on top
 #include "storage/Storage.hpp"
-#include "System.hpp"
+//#include "System.hpp"
 #include "storage/DomainDecomposition.hpp"
 #include "bc/BC.hpp"
+
 //#include "analysis/ConfigurationExt.hpp"
 //#include "analysis/ConfigurationsExt.hpp"
 #include "iterator/CellListIterator.hpp"
@@ -37,14 +38,14 @@
 #include <fstream>
 #include <sstream>
 
-#ifdef HDF5_LAYER
+//#ifdef HDF5_LAYER
     #include "hdf5.h"
     #include "hdf5_hl.h"
-#endif
+//#endif
 
-#ifdef H5MD_LAYER
+//#ifdef H5MD_LAYER
     #include "ch5md.h"
-#endif
+//#endif
 
 //#include "H5Cpp.h"
 
@@ -62,49 +63,8 @@ namespace espressopp {
   namespace io {
 
 
-//   void read_H5MD(std::string filename) {
-//
-//
-//	   // check how many processes are involved (size)
-//	   // each rank reads a small part of the file
-//
-//
-//
-//
-//
-//
-//
-//   };
-//
-//   void write_H5MD() {
-//
-//
-//	   // check how many MPI ranks are involved
-//	   //
-//
-//
-//
-//
-//
-//
-//
-//
-//   };
-//
-//
-//   BOOST_PYTHON_MODULE(h5md_funcs)
-//   {
-//	   using namespace espressopp::python;
-//       def("read_h5md", read_H5MD, args("filename"), "read_h5md's docstring");
-//       def("read_h5md", write_H5MD, args(""), "read_h5md's docstring");
-//   }
 
-
-
-
-
-
-   void H5MDFile::write_n_to_1(){
+   void H5MDWriter::write_n_to_1(){
 
     	shared_ptr<System> system = getSystem();
     	char *ch_f_name = new char[file_name.length() + 1];
@@ -151,7 +111,7 @@ namespace espressopp {
         const char* stripe_value = "4194304";
         MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
 
-        // my detect fs and set appropriate MPI hints!
+        // my detect fs and set appropriate MPI hints! Can move this logic into ch5md
 
 
 
@@ -191,6 +151,9 @@ namespace espressopp {
 		acc_template = H5Pcreate(H5P_FILE_ACCESS);
 		H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
 		file_id = H5Fcreate(ch_f_name, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template); // change this to create the file with H5MD create file call
+		//h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel);
+		//h5md_file h5md_create_file (file_name.c_str(), author.c_str(), NULL, creator.c_str(), creator_version.c_str(), 1);
+
 		//get version;
         //Version();
         //std::string espressopp_version = Version.info();
@@ -208,7 +171,7 @@ namespace espressopp {
         // dims[1] = 3;
         // particles.position = h5md_create_time_data(particles.group, "position", 2, dims, H5T_NATIVE_DOUBLE, NULL);
 
-		H5Pclose(acc_template);
+		//H5Pclose(acc_template);
 
 		particle_info* particles_u  = new particle_info [myN];
 
@@ -341,7 +304,7 @@ namespace espressopp {
 
 
 
-    void H5MDFile::write_n_to_n(){
+    void H5MDWriter::write_n_to_n(){
 
     	shared_ptr<System> system = getSystem();
     	int rank = system->comm->rank();
@@ -522,7 +485,7 @@ namespace espressopp {
 
 
 
-    void H5MDFile::write(){
+    void H5MDWriter::write(){
 
     	int iomodus = getIomode();
     	if (iomodus == 1 || iomodus == 0) {
@@ -534,33 +497,45 @@ namespace espressopp {
 
 
     // Python wrapping
-    void H5MDFile::registerPython() {
+    void H5MDWriter::registerPython() {
 
       using namespace espressopp::python;
 
-      class_<H5MDFile, bases<ParticleAccess>, boost::noncopyable >
-      ("io_H5MDFile", init< shared_ptr< System >,
+      class_<H5MDWriter, bases<ParticleAccess>, boost::noncopyable >
+      ("io_H5MDWriter", init< shared_ptr< System >,
                            shared_ptr< integrator::MDIntegrator >,
                            std::string,
+						   std::string,
+					       std::string,
+						   std::string,
+						   std::string,
 						   int,
                            boost::python::list,
                            bool,
                            real,
                            std::string ,
                            bool>())
-        .add_property("filename", &H5MDFile::getFilename,
-                                  &H5MDFile::setFilename)
-		.add_property("iomode", &H5MDFile::getIomode,
-										&H5MDFile::setIomode)
-        .add_property("unfolded", &H5MDFile::getUnfolded,
-                                  &H5MDFile::setUnfolded)
-        .add_property("length_factor", &H5MDFile::getLengthFactor,
-                                       &H5MDFile::setLengthFactor)
-        .add_property("length_unit", &H5MDFile::getLengthUnit,
-                                     &H5MDFile::setLengthUnit)
-        .add_property("append", &H5MDFile::getAppend,
-                                  &H5MDFile::setAppend)
-        .def("write", &H5MDFile::write)
+        .add_property("filename", &H5MDWriter::getFilename,
+                                  &H5MDWriter::setFilename)
+	    .add_property("author", &H5MDWriter::getFilename,
+								  &H5MDWriter::setFilename)
+	    .add_property("author_email", &H5MDWriter::getFilename,
+								  &H5MDWriter::setFilename)
+	    .add_property("creator", &H5MDWriter::getFilename,
+								  &H5MDWriter::setFilename)
+		.add_property("creator_version", &H5MDWriter::getFilename,
+								  &H5MDWriter::setFilename)
+	    .add_property("iomode", &H5MDWriter::getIomode,
+								&H5MDWriter::setIomode)
+        .add_property("unfolded", &H5MDWriter::getUnfolded,
+                                  &H5MDWriter::setUnfolded)
+        .add_property("length_factor", &H5MDWriter::getLengthFactor,
+                                       &H5MDWriter::setLengthFactor)
+        .add_property("length_unit", &H5MDWriter::getLengthUnit,
+                                     &H5MDWriter::setLengthUnit)
+        .add_property("append", &H5MDWriter::getAppend,
+                                  &H5MDWriter::setAppend)
+        .def("write", &H5MDWriter::write)
       ;
     }
   }

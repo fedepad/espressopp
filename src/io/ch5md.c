@@ -11,9 +11,9 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef _PARALLEL_V
+//#ifdef _PARALLEL_V
     #include "mpi.h"
-#endif
+//#endif
 
 
 #define MIN_CHUNK 10
@@ -100,6 +100,8 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
   file.particles = H5Gcreate(file.id, "particles", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   file.observables = H5Gcreate(file.id, "observables", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   file.parameters = H5Gcreate(file.id, "parameters", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  if (parallel == 1) H5Pclose(acc_template);
 
   return file;
 }

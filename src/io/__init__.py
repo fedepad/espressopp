@@ -30,11 +30,6 @@ from espressopp.io.DumpXYZ import *
 from espressopp.io.DumpGRO import *
 from espressopp.io.DumpGROAdress import *
 try:
-  from espressopp.io.H5MDFile import *
-except ImportError:
-  pass
-
-try:
-  from espressopp.io.H5MD import *
+  from espressopp.io.H5MDWriter import *
 except ImportError:
   pass

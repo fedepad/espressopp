@@ -19,11 +19,11 @@
 
 r"""
 *********************************************
-**H5MDFile** - IO Object
+**H5MDWriter** - IO Object
 *********************************************
 
 * `write()`
-  write configuration to trajectory H5MD file. By default filename is "out.xyz",
+  write configuration to H5MD file. By default filename is "out.xyz",
   coordinates are folded.
 
   Properties
@@ -57,14 +57,14 @@ usage:
 
 writing down trajectory
 
->>> dump_conf_h5md = espressopp.io.H5MDFile(system, integrator, filename='trajectory.h5', iomode=1)
+>>> dump_conf_h5md = espressopp.io.H5MDWriter(system, integrator, filename='trajectory.h5', iomode=1)
 >>> for i in range (200):
 >>>   integrator.run(10)
 >>>   dump_conf_h5md.write()
 
 writing down trajectory using ExtAnalyze extension
 
->>> dump_conf_h5md = espressopp.io.H5MDFile(system, integrator, filename='trajectory.h5', iomode=1, data_to_store=['all'])
+>>> dump_conf_h5md = espressopp.io.H5MDWriter(system, integrator, filename='trajectory.h5', iomode=1, data_to_store=['all'])
 >>> ext_analyze = espressopp.integrator.ExtAnalyze(dump_conf_h5md, 10)
 >>> integrator.addExtension(ext_analyze)
 >>> integrator.run(2000)
@@ -75,11 +75,11 @@ setting up length scale
 
 For example, the Lennard-Jones model for liquid argon with :math:`\sigma=0.34 [nm]`
 
->>> dump_conf_h5md = espressopp.io.H5MDFile(system, integrator, filename='trj.h5', iomode=1, data_to_store=['pid', 'mass', 'velocity'], unfolded=False, length_factor=0.34, length_unit='nm', append=True)
+>>> dump_conf_h5md = espressopp.io.H5MDWriter(system, integrator, filename='trj.h5', iomode=1, data_to_store=['pid', 'mass', 'velocity'], unfolded=False, length_factor=0.34, length_unit='nm', append=True)
 
 will produce trj.h5 with  in nanometers // Federico P. comment: what in nanometers? It's clear coordinate but please don't leave sentence hanging!
 
-.. function:: espressopp.io.H5MDFile(system, integrator, filename, iomode, data_to_store, unfolded, length_factor, length_unit, append)
+.. function:: espressopp.io.H5MDWriter(system, integrator, filename, iomode, data_to_store, unfolded, length_factor, length_unit, append)
 
         :param system:
         :param integrator:
@@ -100,7 +100,7 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
         :type length_unit:
         :type append:
 
-.. function:: espressopp.io.H5MDFile.write()
+.. function:: espressopp.io.H5MDWriter.write()
 
         :rtype:
 """
@@ -109,23 +109,31 @@ from espressopp.esutil import cxxinit
 from espressopp import pmi
 
 from espressopp.ParticleAccess import *
-from _espressopp import io_H5MDFile
+from _espressopp import io_H5MDWriter
 
-class H5MDFileLocal(ParticleAccessLocal, io_H5MDFile):
+class H5MDWriterLocal(ParticleAccessLocal, io_H5MDWriter):
 
-  def __init__(self, system, integrator, filenam e='out.h5', iomode=1, data_to_store=['all'], unfolded=False, length_factor=1.0, length_unit='LJ', append=True):
-    cxxinit(self, io_H5MDFile, system, integrator, filename, iomode, data_to_store, unfolded, length_factor, length_unit, append)
+  def __init__(self, system, integrator, filename='out.h5', 
+               author, author_email = 'NULL', creator = espressopp.VersionLocal().name, 
+               creator_version = '.'join([espressopp.VersionLocal().major, 
+                                          espressopp.VersionLocal().minor, 
+                                          espressopp.VersionLocal().patchlevel]),
+                iomode=1, data_to_store=['all'], unfolded=False, length_factor=1.0, 
+               length_unit='LJ', append=True):
+    cxxinit(self, io_H5MDWriter, system, integrator, filename, author, 
+            author_email, creator, creator_version, iomode, data_to_store, 
+            unfolded, length_factor, length_unit, append)
 
   def write(self):
-    if not pmi._PMIComm or pmi._MPIcomm.rank in pmi._PMIComm.getMPIcpugroup():
+    if pmi.workerIsActive():
       self.cxxclass.write(self)
 
 
 if pmi.isController :
-  class H5MDFile(ParticleAccess):
+  class H5MDWriter(ParticleAccess):
     __metaclass__ = pmi.Proxy
     pmiproxydefs = dict(
-      cls =  'espressopp.io.H5MDFileLocal',
+      cls =  'espressopp.io.H5MDWriterLocal',
       pmicall = [ 'write' ],
-      pmiproperty = ['filename', 'iomode', 'data_to_store', 'unfolded', 'length_factor', 'length_unit', 'append']
+      pmiproperty = ['filename', 'author', 'author_email', 'creator', 'creator_version', 'iomode', 'data_to_store', 'unfolded', 'length_factor', 'length_unit', 'append']
     )

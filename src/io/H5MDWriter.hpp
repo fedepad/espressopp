@@ -19,15 +19,17 @@
 */
 
 // ESPP_CLASS
-#ifndef _IO_H5MDFILE_HPP
-#define _IO_H5MDFILE_HPP
+#ifndef _IO_H5MDWRITER_HPP
+#define _IO_H5MDWRITER_HPP
 
 // http://stackoverflow.com/questions/10056393/g-with-python-h-how-to-compile
 // http://realmike.org/blog/2012/07/08/embedding-python-tutorial-part-1/
 #include "ParticleAccess.hpp"  // keep python.hpp on top
+#include "System.hpp"
 #include "integrator/MDIntegrator.hpp"
 #include "io/FileBackup.hpp"
 #include "esutil/Error.hpp"
+#include "Version.hpp"
 #include "template_py_to_cpp_containers.hpp"
 #include <string>
 #include <set>
@@ -57,59 +59,65 @@ namespace espressopp {
     };
 
 
-    void read_H5MD();
-    void write_H5MD();
 
-
-
-
-
-    class H5MDFile : public ParticleAccess {
+    class H5MDWriter : public ParticleAccess {
 
     public:
 
-      H5MDFile(shared_ptr<System> system,
-              shared_ptr<integrator::MDIntegrator> _integrator,
-              std::string _file_name,
-			  int _iomode,
-              boost::python::list _data_to_store,
-              bool _unfolded,
-              real _length_factor,
-              std::string _length_unit,
-              bool _append) :
-                        ParticleAccess(system),
-                        integrator(_integrator),
-                        file_name( _file_name ),
-						iomode(_iomode),
-                        data_to_store(_data_to_store),
-                        unfolded(_unfolded),
-                        length_factor(_length_factor),
-                        append(_append){
-        setLengthUnit(_length_unit);
-        info_table_ini table_store;
-        set_init_table(table_store, data_to_store);
+    	H5MDWriter(shared_ptr<System> system,
+    	                shared_ptr<integrator::MDIntegrator> _integrator,
+    	                std::string _file_name,
+    					std::string _author,
+    					std::string _author_email,
+    					std::string _creator,
+    					std::string _creator_version,
+    					int _iomode,
+    	                boost::python::list _data_to_store,
+    	                bool _unfolded,
+    	                real _length_factor,
+    	                std::string _length_unit,
+    	                bool _append):
+    	                          ParticleAccess(system),
+    	                          integrator(_integrator),
+    	                          file_name( _file_name ),
+    							  author(_author),
+    							  author_email(_author_email),
+    							  creator(_creator),
+    							  creator_version(_creator_version),
+    							  iomode(_iomode),
+    	                          data_to_store(_data_to_store),
+    	                          unfolded(_unfolded),
+    	                          length_factor(_length_factor),
+    							  length_unit(_length_unit),
+    	                          append(_append) {
+
+    		  	  //setLengthUnit(_length_unit);
+    	          info_table_ini table_store;
+    	          set_init_table(table_store, data_to_store);
 
 
-        if (iomode == 1 || iomode == 0) {
+    	          if (iomode == 1 || iomode == 0) {
 
-			if (system->comm->rank() == 0  && !append) {
-				FileBackup backup(file_name);
-			}
-        } else if (iomode == 2) {
+    	  			if (system->comm->rank() == 0  && !append) {
+    	  				FileBackup backup(file_name);
+    	  			}
+    	          } else if (iomode == 2) {
 
-        	if (!append) {
-				int rank = system->comm->rank();
-				size_t filename_length = file_name.length();
-				std::string suffix = file_name.substr(filename_length-3, 3);
-				std::string base_filename = file_name.substr(0,filename_length-3);
-				std::string rankstring = static_cast<std::ostringstream*>( &(std::ostringstream() << rank) )->str();
-				std::string final_name = base_filename + "_" + rankstring + suffix;
-				FileBackup backup(final_name);
-        	}
+    	          	if (!append) {
+    	  				int rank = system->comm->rank();
+    	  				size_t filename_length = file_name.length();
+    	  				std::string suffix = file_name.substr(filename_length-3, 3);
+    	  				std::string base_filename = file_name.substr(0,filename_length-3);
+    	  				std::string rankstring = static_cast<std::ostringstream*>( &(std::ostringstream() << rank) )->str();
+    	  				std::string final_name = base_filename + "_" + rankstring + suffix;
+    	  				FileBackup backup(final_name);
+    	          	}
 
-        }
-      }
-      ~H5MDFile() {}
+    	          }
+    	        }
+
+
+      ~H5MDWriter() {}
 
       void perform_action(){
         write();
@@ -117,18 +125,26 @@ namespace espressopp {
 
       void write_n_to_1();
       void write_n_to_n();
-
-
       void write();
-      void read(std::string filename);
-      //void sort_by_pid();
-
-
 
       std::string getFilename(){return file_name;}
       void setFilename(std::string v){file_name = v;}
+
+
+      std::string getAuthor(){return author;}
+      void setAuthor(std::string v){author = v;}
+      std::string getAuthorEmail(){return author_email;}
+      void setAuthorEmail(std::string v){author_email = v;}
+      std::string getCreator(){return creator;}
+      void setCreator(std::string v){creator = v;}
+      std::string getCreatorVersion(){return creator;}
+      void setCreatorVersion(std::string v){creator_version = v;}
+
       inline int getIomode(){return iomode;}
       inline void setIomode(int v){iomode = v;}
+      // set and get data_to_store
+
+
       bool getUnfolded(){return unfolded;}
       void setUnfolded(bool v){unfolded = v;}
       bool getAppend(){return append;}
@@ -194,9 +210,16 @@ namespace espressopp {
       shared_ptr<integrator::MDIntegrator> integrator;
 
       std::string file_name;
+
+      std::string author;
+      std::string author_email;
+      std::string creator;
+      std::string creator_version;
+
       int iomode; // 0: serial, 1: N-to-1, 2: N-to-N; real 0 not there now
       boost::python::list data_to_store;  // python list: can pass either 'all' and all particle data structure info
       // is stored or ['pid', 'mass', 'position'] and only pid, mass and position of the particles will be stored
+      // Default is: 'all'
       info_table_ini datas;
 
       bool unfolded;  // one can choose folded or unfolded coordinates, by default it is folded
