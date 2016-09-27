@@ -71,7 +71,7 @@ namespace espressopp {
     					std::string _author_email,
     					std::string _creator,
     					std::string _creator_version,
-    					int _iomode,
+						int _iomode,
     	                boost::python::list _data_to_store,
     	                bool _unfolded,
     	                real _length_factor,
@@ -79,7 +79,7 @@ namespace espressopp {
     	                bool _append):
     	                          ParticleAccess(system),
     	                          integrator(_integrator),
-    	                          file_name( _file_name ),
+    	                          file_name( _file_name),
     							  author(_author),
     							  author_email(_author_email),
     							  creator(_creator),
@@ -150,15 +150,15 @@ namespace espressopp {
       bool getAppend(){return append;}
       void setAppend(bool v){append = v;}
 
-       std::set<std::string> getSetfrompythonlist(boost::python::list data_to_store) {
+	  std::set<std::string> getSetfrompythonlist(boost::python::list data_to_store) {
 
-        return python_list_to_set<std::string>(data_to_store);
+		  return python_list_to_set<std::string>(data_to_store);
 
-       };
+	  };
 
-       void set_init_table(info_table_ini table_init, boost::python::list initial_list){
+      void set_init_table(info_table_ini table_init, boost::python::list initial_list){
 
-        std::set<std::string> ciao = getSetfrompythonlist(initial_list);
+       std::set<std::string> ciao = getSetfrompythonlist(initial_list);
 
 
         if (ciao.find("all") != ciao.end())
@@ -181,7 +181,7 @@ namespace espressopp {
         }
 
 
-       };
+      };
 
       std::string getLengthUnit(){return length_unit;}
       void setLengthUnit(std::string v){

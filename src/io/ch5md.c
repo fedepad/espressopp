@@ -10,6 +10,8 @@
 #include "ch5md.h"
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <stdio.h>
 
 //#ifdef _PARALLEL_V
     #include "mpi.h"
@@ -23,7 +25,7 @@
 // FGP: adding extensions for parallel I/O as comments
 // in case of MPI in addition to a filespace one need to define memory space which is the process-local view of the data, while the filespace
 
-h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel = 1)  // parallel default, otherwise fall back to serial lib...-> parallel = 0
+h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel)  // parallel default, otherwise fall back to serial lib...-> parallel = 0
 //h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version)
 {
   // FGP: adding extensions for parallel I/O as comments
@@ -32,16 +34,17 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
   hid_t a, s, t;
   hsize_t dims[1];
   herr_t status;
-  hid_t acc_template
+  hid_t acc_template;
   file.version[0] = 1;
   file.version[1] = 0;
 
   if (parallel == 0 ) {
 
     file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    assert(file.id > 0);
 
   } else if (parallel == 1) {
-
+	printf("In parallel mode!\n");
     acc_template = H5Pcreate(H5P_FILE_ACCESS);
     MPI_Info info;
     MPI_Info_create(&info);
@@ -51,6 +54,7 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
     //add my detection of fs...don't know where it went!!!!!
     H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
     file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template);
+    assert(file.id > 0);
 
   }
 
@@ -110,7 +114,62 @@ int h5md_close_file(h5md_file file) {
   H5Gclose(file.particles);
   H5Gclose(file.observables);
   H5Gclose(file.parameters);
+  //Any opened objects before file close?
+//  printf("Inside this loop before\n");
+//  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
+//  if (norphans > 1) { /* expect 1 for the file we have not closed */
+//	 int i;
+//	 H5O_info_t info;
+//	 char name[64];
+//	 hid_t * objects = calloc(norphans, sizeof(hid_t));
+//	 H5Fget_obj_ids(file.id, H5F_OBJ_ALL, -1, objects);
+//	 for (i=0; i<norphans; i++) {
+//		 H5Oget_info(objects[i], &info);
+//		 H5Iget_name(objects[i], name, 64);
+//		 printf("%d of %zd things still open: %d with name %s of type %d\n", i, norphans, objects[i], name, info.type);
+//		 //if (info.type == H5O_TYPE_GROUP) H5Gclose(objects[i]);
+//	 }
+//}
+
+  //hid_t grid;
+  //H5Gopen2(grid, "/h5md");
+
+  //H5Gclose(33554432);
+
+
+  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
+  if (norphans > 1) { /* expect 1 for the file we have not closed */
+	 printf("Inside this loop after\n");
+	 int i;
+	 H5O_info_t info;
+	 char name[64];
+	 hid_t * objects = calloc(norphans, sizeof(hid_t));
+	 H5Fget_obj_ids(file.id, H5F_OBJ_ALL, -1, objects);
+	 for (i=0; i<norphans; i++) {
+		 H5Oget_info(objects[i], &info);
+		 H5Iget_name(objects[i], name, 64);
+		 printf("%d of %zd things still open: %d with name %s of type %d\n", i, norphans, objects[i], name, info.type);
+		 //if (info.type == H5O_TYPE_GROUP) H5Gclose(objects[i]);
+		 if (info.type == H5O_TYPE_GROUP) H5Gclose(objects[i]);
+	 }
+}
+
+
   H5Fclose(file.id);
+
+//  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
+//    if (norphans > 1) { /* expect 1 for the file we have not closed */
+//  	 int i;
+//  	 H5O_info_t info;
+//  	 char name[64];
+//  	 hid_t * objects = calloc(norphans, sizeof(hid_t));
+//  	 H5Fget_obj_ids(file.id, H5F_OBJ_ALL, -1, objects);
+//  	 for (i=0; i<norphans; i++) {
+//  		 H5Oget_info(objects[i], &info);
+//  		 H5Iget_name(objects[i], name, 64);
+//  		 printf("%d of %zd things still open: %d with name %s of type %d\n", i, norphans, objects[i], name, info.type);
+//  	 }
+//  }
 
   return 0;
 }

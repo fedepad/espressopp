@@ -39,8 +39,8 @@
 #include <sstream>
 
 //#ifdef HDF5_LAYER
-    #include "hdf5.h"
-    #include "hdf5_hl.h"
+    //#include "hdf5.h"
+    //#include "hdf5_hl.h"
 //#endif
 
 //#ifdef H5MD_LAYER
@@ -66,239 +66,364 @@ namespace espressopp {
 
    void H5MDWriter::write_n_to_1(){
 
-    	shared_ptr<System> system = getSystem();
-    	char *ch_f_name = new char[file_name.length() + 1];
-    	strcpy(ch_f_name, file_name.c_str());
-    	int rank = system->comm->rank();
-    	int mpi_ranks = system->comm->size();
-    	string rankstring = static_cast<ostringstream*>( &(ostringstream() << rank) )->str();
 
-    	int ierr;
-		int myN = system->storage->getNRealParticles();  // could avoid this call by putting a counter in the Cells loop below...
-		int maxN;   // maximal number of particles one processor has
-		int totalN; // total number of particles all processors have
+	shared_ptr<System> system = getSystem();
+	char *ch_f_name = new char[file_name.length() + 1];
+	strcpy(ch_f_name, file_name.c_str());
+	int rank = system->comm->rank();
+	int mpi_ranks = system->comm->size();
+	string rankstring = static_cast<ostringstream*>( &(ostringstream() << rank) )->str();
 
-		boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
-		boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace
+	int ierr;
+	int myN = system->storage->getNRealParticles();  // could avoid this call by putting a counter in the Cells loop below...
+	int maxN;   // maximal number of particles one processor has
+	int totalN; // total number of particles all processors have
 
-		int* array_nparticles = new int [mpi_ranks];   // to write contiguos in file
+	boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
+	boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace
 
-		boost::mpi::all_gather(*system->comm, myN, array_nparticles);  // needed for contiguos writing
+	int* array_nparticles = new int [mpi_ranks];   // to write contiguous in file
 
-		char dataSetName[256];
-		int RANK = 2;
+	boost::mpi::all_gather(*system->comm, myN, array_nparticles);  // needed for contiguous writing
 
+	//h5md_file h5md_create_file (file_name.c_str(), author.c_str(), NULL, creator.c_str(), creator_version.c_str(), 1);
+	h5md_file the_File = h5md_create_file (file_name.c_str(), author.c_str(), author_email.c_str(), creator.c_str(), creator_version.c_str(), 1);
+	h5md_particles_group atoms;
 
-		typedef struct {
-			size_t pid;
-			size_t type;
-			real mass;
-			real charge;
-			real lambda; // adress flag: 0 means no adress
-			real drift;
-			real lambdaDeriv;
-			int state;
-			double x[3];
-			double v[3];
-			double force[3];
-		} particle_info;
+	const char *boundary[] = {"periodic", "periodic", "none"};
+	atoms = h5md_create_particles_group(the_File, "atoms");
 
-		CellList realCells = system->storage->getRealCells();
-		//MPI_Info info  = MPI_INFO_NULL;  // if on normal laptop
-        MPI_Info info;
-        MPI_Info_create(&info);
-        const char* hint_stripe = "striping_unit";
-        const char* stripe_value = "4194304";
-        MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
+	//double* coordin = new double [myN];
 
-        // my detect fs and set appropriate MPI hints! Can move this logic into ch5md
+	size_t pids[myN];
+	//double velo[myN][3];
+	double coordina[myN][3];
 
 
 
+	CellList realCells = system->storage->getRealCells();
 
-        // create type for array-like objects, like coordinates, vel and force
-		hsize_t dimearr[1] = {3};
-		hid_t loctype = H5Tarray_create1(H5T_NATIVE_DOUBLE, 1, dimearr, NULL);
+	int i = 0;
+	assert( i == 0);
 
-		// create the HDF5 compound datatype from the struct
-		hid_t particle_record = H5Tcreate (H5T_COMPOUND, sizeof(particle_info));
-		H5Tinsert(particle_record, "pid", HOFFSET(particle_info,pid), H5T_NATIVE_INT);
-		H5Tinsert(particle_record, "type", HOFFSET(particle_info,type), H5T_NATIVE_INT);
-		H5Tinsert(particle_record, "mass", HOFFSET(particle_info,mass), H5T_NATIVE_DOUBLE);
-		H5Tinsert(particle_record, "charge", HOFFSET(particle_info,charge), H5T_NATIVE_DOUBLE);
-		H5Tinsert(particle_record, "lambda", HOFFSET(particle_info,lambda), H5T_NATIVE_DOUBLE);
-		H5Tinsert(particle_record, "drift", HOFFSET(particle_info,drift), H5T_NATIVE_DOUBLE);
-		H5Tinsert(particle_record, "lambdaDeriv", HOFFSET(particle_info,lambdaDeriv), H5T_NATIVE_DOUBLE);
-		H5Tinsert(particle_record, "state", HOFFSET(particle_info,state), H5T_NATIVE_INT);
-		H5Tinsert(particle_record, "x", HOFFSET(particle_info,x), loctype);
-		H5Tinsert(particle_record, "v", HOFFSET(particle_info,v), loctype);
-		H5Tinsert(particle_record, "force", HOFFSET(particle_info,force), loctype);
-        // create the hdf5 data type to store according to user preferences
-        //
+	  if( unfolded ){
+		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
+		  Real3D& pos = cit->position();
+		 // Real3D& vel = cit->velocity();
+		  //Real3D& force = cit->force();
+		  Int3D& img = cit->image();
+		  Real3D L = system->bc->getBoxL();
+		  pids[i] = cit->id();
+//		  particles_u[i].type = cit->type();
+//		  particles_u[i].mass = cit->mass();
+//		  particles_u[i].charge = cit->q();
+//		  particles_u[i].lambda = cit->lambda();
+//		  particles_u[i].drift = cit->drift();
+//		  particles_u[i].lambdaDeriv = cit->lambdaDeriv();
+//		  particles_u[i].state = cit->state();
+		  coordina[i][0] = pos[0] + img[0] * L[0];
+		  coordina[i][1] = pos[1] + img[1] * L[1];
+		  coordina[i][2] = pos[2] + img[2] * L[2];
+//		  particles_u[i].v[0] = vel[0];
+//		  particles_u[i].v[1] = vel[1];
+//		  particles_u[i].v[2] = vel[2];
+//		  particles_u[i].force[0] = force[0];
+//		  particles_u[i].force[1] = force[1];
+//		  particles_u[i].force[2] = force[2];
 
-
-		hid_t acc_template;
-		hid_t file_id, dset_id;
-		hid_t filespace, memspace;
-		herr_t status;
-
-		hsize_t count[RANK];
-		hsize_t offset[RANK];
-
-		hsize_t dimsf[RANK];
-
-
-		acc_template = H5Pcreate(H5P_FILE_ACCESS);
-		H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
-		file_id = H5Fcreate(ch_f_name, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template); // change this to create the file with H5MD create file call
-		//h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel);
-		//h5md_file h5md_create_file (file_name.c_str(), author.c_str(), NULL, creator.c_str(), creator_version.c_str(), 1);
-
-		//get version;
-        //Version();
-        //std::string espressopp_version = Version.info();
-
-
-        // h5md_file h5md_create_file (ch_f_name, author_or_username_on_the_machine, author_email_default_to_null, prog_name, espressopp_version.c_str())
-		assert(file_id > 0);
-
-        // h5md_file file;
-        // h5md_particles_group particles;
-        // particles = h5md_create_particles_group(file, "atoms");
-        // // Create a time-dependent dataset
-        //     // There is no data yet in "pos"
-        // dims[0] = myN;
-        // dims[1] = 3;
-        // particles.position = h5md_create_time_data(particles.group, "position", 2, dims, H5T_NATIVE_DOUBLE, NULL);
-
-		//H5Pclose(acc_template);
-
-		particle_info* particles_u  = new particle_info [myN];
-
-		int i = 0;
-		assert( i == 0);
-
-		  if( unfolded ){
-			for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
-			  Real3D& pos = cit->position();
-			  Real3D& vel = cit->velocity();
-			  Real3D& force = cit->force();
-			  Int3D& img = cit->image();
-			  Real3D L = system->bc->getBoxL();
-			  particles_u[i].pid = cit->id();
-			  particles_u[i].type = cit->type();
-			  particles_u[i].mass = cit->mass();
-			  particles_u[i].charge = cit->q();
-			  particles_u[i].lambda = cit->lambda();
-			  particles_u[i].drift = cit->drift();
-			  particles_u[i].lambdaDeriv = cit->lambdaDeriv();
-			  particles_u[i].state = cit->state();
-			  particles_u[i].x[0] = pos[0] + img[0] * L[0];
-			  particles_u[i].x[1] = pos[1] + img[1] * L[1];
-			  particles_u[i].x[2] = pos[2] + img[2] * L[2];
-			  particles_u[i].v[0] = vel[0];
-			  particles_u[i].v[1] = vel[1];
-			  particles_u[i].v[2] = vel[2];
-			  particles_u[i].force[0] = force[0];
-			  particles_u[i].force[1] = force[1];
-			  particles_u[i].force[2] = force[2];
-
-			  i++;
-			}
-		  }
-		  else{
-			for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
-			  Real3D& pos = cit->position();
-			  Real3D& vel = cit->velocity();
-			  Real3D& force = cit->force();
-			  particles_u[i].pid = cit->id();
-			  particles_u[i].type = cit->type();
-			  particles_u[i].mass = cit->mass();
-			  particles_u[i].charge = cit->q();
-			  particles_u[i].lambda = cit->lambda();
-			  particles_u[i].drift = cit->drift();
-			  particles_u[i].lambdaDeriv = cit->lambdaDeriv();
-			  particles_u[i].state = cit->state();
-			  particles_u[i].x[0] = pos[0];
-			  particles_u[i].x[1] = pos[1];
-			  particles_u[i].x[2] = pos[2];
-			  particles_u[i].v[0] = vel[0];
-			  particles_u[i].v[1] = vel[1];
-			  particles_u[i].v[2] = vel[2];
-			  particles_u[i].force[0] = force[0];
-			  particles_u[i].force[1] = force[1];
-			  particles_u[i].force[2] = force[2];
-
-			  i++;
-			}
-		  }
-
-        hsize_t di[RANK];
-        di[0] = myN;
-        di[1] = 6;
-
-        hsize_t di2[RANK];
-		di2[0] = myN;
-		di2[1] = H5Tget_size(particle_record);
-
-
-        dimsf[0] = totalN;
-        dimsf[1] = 1;
-
-		filespace = H5Screate_simple(RANK, dimsf, NULL); //create filespace: check h5md call
-
-		sprintf(dataSetName, "Particles");
-		dset_id = H5Dcreate2(file_id, dataSetName, particle_record, filespace,
-                H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT); // check h5md dataset creation func call!
-
-        H5Sclose(filespace);
-
-        // logic to write a file contiguosly!
-		int sumup = 0;
-		count[0] = myN;
-		count[1] = dimsf[1];
-		if (rank == 0) {
-		offset[0] = rank;
-		} else {
-
-			for(int L=0; L<rank; L++) {
-				sumup += array_nparticles[L];
-			}
-
-			offset[0] = sumup;
+		  i++;
 		}
+	  }
+	  else{
+		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
+		  Real3D& pos = cit->position();
+		  //Real3D& vel = cit->velocity();
+		  //Real3D& force = cit->force();
+		  pids[i] = cit->id();
+//		  particles_u[i].type = cit->type();
+//		  particles_u[i].mass = cit->mass();
+//		  particles_u[i].charge = cit->q();
+//		  particles_u[i].lambda = cit->lambda();
+//		  particles_u[i].drift = cit->drift();
+//		  particles_u[i].lambdaDeriv = cit->lambdaDeriv();
+//		  particles_u[i].state = cit->state();
+		  coordina[i][0] = pos[0];
+		  coordina[i][1] = pos[1];
+		  coordina[i][2] = pos[2];
+//		  particles_u[i].v[0] = vel[0];
+//		  particles_u[i].v[1] = vel[1];
+//		  particles_u[i].v[2] = vel[2];
+//		  particles_u[i].force[0] = force[0];
+//		  particles_u[i].force[1] = force[1];
+//		  particles_u[i].force[2] = force[2];
 
-		offset[1] = 0;
-
-		memspace = H5Screate_simple(RANK, count, NULL);
-
-
-		filespace = H5Dget_space(dset_id);
-		H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL); // check with H5MD
+		  i++;
+		}
+	  }
 
 
 
-		hid_t plist_id = H5Pcreate(H5P_DATASET_XFER); // keep it, h5md doesn't do parallel
-		H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE); // important, include in h5md
-		//H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);  // to write datasets independently, usually not suggested!
+	  // Create a time-dependent dataset
+	  	// There is no data yet in "pos"
+	  	int RANK = 2;
+	  	//hsize_t dims[RANK];
+	  	int dims[RANK];
 
-		status = H5Dwrite(dset_id, particle_record, memspace, filespace, plist_id, particles_u); // check h5md: for parallel we have to pass preference list defined plist_id
+	  	dims[0] = myN;
+	  	dims[1] = 3;
+	  	//atoms.position = h5md_create_time_data(atoms.group, "position", RANK, dims, H5T_NATIVE_DOUBLE, coordina);
+	  	atoms.position = h5md_create_fixed_data_simple(atoms.group, "position", RANK, dims, H5T_NATIVE_DOUBLE, coordina);
 
-		assert( status != -1);
 
-		H5Dclose(dset_id);
-		H5Sclose(filespace);
-		H5Tclose(particle_record);
-		H5Sclose(memspace);
 
-		H5Pclose(plist_id);
-		H5Fclose(file_id);
-        // h5md_close_file(h5md_file file)
-		//MPI_Info_free(&info);
 
-		delete [] ch_f_name;
-		delete [] array_nparticles;
-		delete [] particles_u;
+
+
+
+
+
+	  	H5Gclose(atoms.group);
+	h5md_close_element(atoms.position);
+	h5md_close_file(the_File);
+
+	delete [] ch_f_name;
+	delete [] array_nparticles;
+
+
+
+//    	shared_ptr<System> system = getSystem();
+//    	char *ch_f_name = new char[file_name.length() + 1];
+//    	strcpy(ch_f_name, file_name.c_str());
+//    	int rank = system->comm->rank();
+//    	int mpi_ranks = system->comm->size();
+//    	string rankstring = static_cast<ostringstream*>( &(ostringstream() << rank) )->str();
+//
+//    	int ierr;
+//		int myN = system->storage->getNRealParticles();  // could avoid this call by putting a counter in the Cells loop below...
+//		int maxN;   // maximal number of particles one processor has
+//		int totalN; // total number of particles all processors have
+//
+//		boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
+//		boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace
+//
+//		int* array_nparticles = new int [mpi_ranks];   // to write contiguous in file
+//
+//		boost::mpi::all_gather(*system->comm, myN, array_nparticles);  // needed for contiguous writing
+//
+//		char dataSetName[256];
+//		int RANK = 2;
+//
+//
+//		typedef struct {
+//			size_t pid;
+//			size_t type;
+//			real mass;
+//			real charge;
+//			real lambda; // adress flag: 0 means no adress
+//			real drift;
+//			real lambdaDeriv;
+//			int state;
+//			double x[3];
+//			double v[3];
+//			double force[3];
+//		} particle_info;
+//
+//		CellList realCells = system->storage->getRealCells();
+//		//MPI_Info info  = MPI_INFO_NULL;  // if on normal laptop
+//        MPI_Info info;
+//        MPI_Info_create(&info);
+//        const char* hint_stripe = "striping_unit";
+//        const char* stripe_value = "4194304";
+//        MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
+//
+//        // my detect fs and set appropriate MPI hints! Can move this logic into ch5md
+//
+//
+//
+//
+//        // create type for array-like objects, like coordinates, vel and force
+//		hsize_t dimearr[1] = {3};
+//		hid_t loctype = H5Tarray_create1(H5T_NATIVE_DOUBLE, 1, dimearr, NULL);
+//
+//		// create the HDF5 compound datatype from the struct
+//		hid_t particle_record = H5Tcreate (H5T_COMPOUND, sizeof(particle_info));
+//		H5Tinsert(particle_record, "pid", HOFFSET(particle_info,pid), H5T_NATIVE_INT);
+//		H5Tinsert(particle_record, "type", HOFFSET(particle_info,type), H5T_NATIVE_INT);
+//		H5Tinsert(particle_record, "mass", HOFFSET(particle_info,mass), H5T_NATIVE_DOUBLE);
+//		H5Tinsert(particle_record, "charge", HOFFSET(particle_info,charge), H5T_NATIVE_DOUBLE);
+//		H5Tinsert(particle_record, "lambda", HOFFSET(particle_info,lambda), H5T_NATIVE_DOUBLE);
+//		H5Tinsert(particle_record, "drift", HOFFSET(particle_info,drift), H5T_NATIVE_DOUBLE);
+//		H5Tinsert(particle_record, "lambdaDeriv", HOFFSET(particle_info,lambdaDeriv), H5T_NATIVE_DOUBLE);
+//		H5Tinsert(particle_record, "state", HOFFSET(particle_info,state), H5T_NATIVE_INT);
+//		H5Tinsert(particle_record, "x", HOFFSET(particle_info,x), loctype);
+//		H5Tinsert(particle_record, "v", HOFFSET(particle_info,v), loctype);
+//		H5Tinsert(particle_record, "force", HOFFSET(particle_info,force), loctype);
+//        // create the hdf5 data type to store according to user preferences
+//        //
+//
+//
+//		hid_t acc_template;
+//		hid_t file_id, dset_id;
+//		hid_t filespace, memspace;
+//		herr_t status;
+//
+//		hsize_t count[RANK];
+//		hsize_t offset[RANK];
+//
+//		hsize_t dimsf[RANK];
+//
+//
+//		acc_template = H5Pcreate(H5P_FILE_ACCESS);
+//		H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
+//		file_id = H5Fcreate(ch_f_name, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template); // change this to create the file with H5MD create file call
+//		//h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel);
+//		//h5md_file h5md_create_file (file_name.c_str(), author.c_str(), NULL, creator.c_str(), creator_version.c_str(), 1);
+//
+//		//get version;
+//        //Version();
+//        //std::string espressopp_version = Version.info();
+//
+//
+//        // h5md_file h5md_create_file (ch_f_name, author_or_username_on_the_machine, author_email_default_to_null, prog_name, espressopp_version.c_str())
+//		assert(file_id > 0);
+//
+//        // h5md_file file;
+//        // h5md_particles_group particles;
+//        // particles = h5md_create_particles_group(file, "atoms");
+//        // // Create a time-dependent dataset
+//        //     // There is no data yet in "pos"
+//        // dims[0] = myN;
+//        // dims[1] = 3;
+//        // particles.position = h5md_create_time_data(particles.group, "position", 2, dims, H5T_NATIVE_DOUBLE, NULL);
+//
+//		//H5Pclose(acc_template);
+//
+//		particle_info* particles_u  = new particle_info [myN];
+//
+//		int i = 0;
+//		assert( i == 0);
+//
+//		  if( unfolded ){
+//			for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
+//			  Real3D& pos = cit->position();
+//			  Real3D& vel = cit->velocity();
+//			  Real3D& force = cit->force();
+//			  Int3D& img = cit->image();
+//			  Real3D L = system->bc->getBoxL();
+//			  particles_u[i].pid = cit->id();
+//			  particles_u[i].type = cit->type();
+//			  particles_u[i].mass = cit->mass();
+//			  particles_u[i].charge = cit->q();
+//			  particles_u[i].lambda = cit->lambda();
+//			  particles_u[i].drift = cit->drift();
+//			  particles_u[i].lambdaDeriv = cit->lambdaDeriv();
+//			  particles_u[i].state = cit->state();
+//			  particles_u[i].x[0] = pos[0] + img[0] * L[0];
+//			  particles_u[i].x[1] = pos[1] + img[1] * L[1];
+//			  particles_u[i].x[2] = pos[2] + img[2] * L[2];
+//			  particles_u[i].v[0] = vel[0];
+//			  particles_u[i].v[1] = vel[1];
+//			  particles_u[i].v[2] = vel[2];
+//			  particles_u[i].force[0] = force[0];
+//			  particles_u[i].force[1] = force[1];
+//			  particles_u[i].force[2] = force[2];
+//
+//			  i++;
+//			}
+//		  }
+//		  else{
+//			for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
+//			  Real3D& pos = cit->position();
+//			  Real3D& vel = cit->velocity();
+//			  Real3D& force = cit->force();
+//			  particles_u[i].pid = cit->id();
+//			  particles_u[i].type = cit->type();
+//			  particles_u[i].mass = cit->mass();
+//			  particles_u[i].charge = cit->q();
+//			  particles_u[i].lambda = cit->lambda();
+//			  particles_u[i].drift = cit->drift();
+//			  particles_u[i].lambdaDeriv = cit->lambdaDeriv();
+//			  particles_u[i].state = cit->state();
+//			  particles_u[i].x[0] = pos[0];
+//			  particles_u[i].x[1] = pos[1];
+//			  particles_u[i].x[2] = pos[2];
+//			  particles_u[i].v[0] = vel[0];
+//			  particles_u[i].v[1] = vel[1];
+//			  particles_u[i].v[2] = vel[2];
+//			  particles_u[i].force[0] = force[0];
+//			  particles_u[i].force[1] = force[1];
+//			  particles_u[i].force[2] = force[2];
+//
+//			  i++;
+//			}
+//		  }
+//
+//        hsize_t di[RANK];
+//        di[0] = myN;
+//        di[1] = 6;
+//
+//        hsize_t di2[RANK];
+//		di2[0] = myN;
+//		di2[1] = H5Tget_size(particle_record);
+//
+//
+//        dimsf[0] = totalN;
+//        dimsf[1] = 1;
+//
+//		filespace = H5Screate_simple(RANK, dimsf, NULL); //create filespace: check h5md call
+//
+//		sprintf(dataSetName, "Particles");
+//		dset_id = H5Dcreate2(file_id, dataSetName, particle_record, filespace,
+//                H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT); // check h5md dataset creation func call!
+//
+//        H5Sclose(filespace);
+//
+//        // logic to write a file contiguosly!
+//		int sumup = 0;
+//		count[0] = myN;
+//		count[1] = dimsf[1];
+//		if (rank == 0) {
+//		offset[0] = rank;
+//		} else {
+//
+//			for(int L=0; L<rank; L++) {
+//				sumup += array_nparticles[L];
+//			}
+//
+//			offset[0] = sumup;
+//		}
+//
+//		offset[1] = 0;
+//
+//		memspace = H5Screate_simple(RANK, count, NULL);
+//
+//
+//		filespace = H5Dget_space(dset_id);
+//		H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, count, NULL); // check with H5MD
+//
+//
+//
+//		hid_t plist_id = H5Pcreate(H5P_DATASET_XFER); // keep it, h5md doesn't do parallel
+//		H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE); // important, include in h5md
+//		//H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_INDEPENDENT);  // to write datasets independently, usually not suggested!
+//
+//		status = H5Dwrite(dset_id, particle_record, memspace, filespace, plist_id, particles_u); // check h5md: for parallel we have to pass preference list defined plist_id
+//
+//		assert( status != -1);
+//
+//		H5Dclose(dset_id);
+//		H5Sclose(filespace);
+//		H5Tclose(particle_record);
+//		H5Sclose(memspace);
+//
+//		H5Pclose(plist_id);
+//		H5Fclose(file_id);
+//        // h5md_close_file(h5md_file file)
+//		//MPI_Info_free(&info);
+//
+//		delete [] ch_f_name;
+//		delete [] array_nparticles;
+//		delete [] particles_u;
 	}
 
 

@@ -84,6 +84,11 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
         :param system:
         :param integrator:
         :param filename: (default: 'out.h5')
+        :param author: (default: 'out.h5')
+        :param author_email: (default: 'NULL')
+        :param creator: (default: 'EsPResso++')
+        :param creator_version: (default: xxxx) 
+
         :param iomode: (default: 1)
         :param data_to_store: (default: ['all'])
         :param unfolded: (default: False)
@@ -92,13 +97,17 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
         :param append: (default: True)
         :type system:
         :type integrator:
-        :type filename:
-        :type iomode:
-        :type data_to_store:
-        :type unfolded:
+        :type filename: string
+        :type author: string
+        :type author_email: string
+        :type creator: string
+        :type creator_version: string
+        :type iomode: int
+        :type data_to_store: list of strings
+        :type unfolded: bool
         :type length_factor: real
-        :type length_unit:
-        :type append:
+        :type length_unit: real
+        :type append: bool
 
 .. function:: espressopp.io.H5MDWriter.write()
 
@@ -107,17 +116,18 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
 
 from espressopp.esutil import cxxinit
 from espressopp import pmi
+import espressopp
 
 from espressopp.ParticleAccess import *
 from _espressopp import io_H5MDWriter
 
 class H5MDWriterLocal(ParticleAccessLocal, io_H5MDWriter):
 
-  def __init__(self, system, integrator, filename='out.h5', 
-               author, author_email = 'NULL', creator = espressopp.VersionLocal().name, 
-               creator_version = '.'join([espressopp.VersionLocal().major, 
-                                          espressopp.VersionLocal().minor, 
-                                          espressopp.VersionLocal().patchlevel]),
+  def __init__(self, system, integrator, filename='out.h5', author="Jack Sparrow", 
+               author_email="xxx", creator = espressopp.VersionLocal().name, 
+               creator_version = ".".join([str(espressopp.VersionLocal().major), 
+                                          str(espressopp.VersionLocal().minor), 
+                                          str(espressopp.VersionLocal().patchlevel)]), 
                 iomode=1, data_to_store=['all'], unfolded=False, length_factor=1.0, 
                length_unit='LJ', append=True):
     cxxinit(self, io_H5MDWriter, system, integrator, filename, author, 
