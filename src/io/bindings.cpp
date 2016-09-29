@@ -1,6 +1,8 @@
 /*
-  Copyright (C) 2014,2015,2016
-      Max Planck Institute for Polymer Research & Johannes Gutenberg-Universität Mainz
+  Copyright (C) 2016
+      Max Planck Institute for Polymer Research & JGU Mainz
+  Copyright (C) 2014,2015
+      Max Planck Institute for Polymer Research
   Copyright (C) 2012,2013
       Max Planck Institute for Polymer Research
   Copyright (C) 2008,2009,2010,2011
@@ -28,6 +30,9 @@
 #include "DumpGROAdress.hpp"
 #ifdef HDF5_LAYER
     #include "H5MDWriter.hpp"
+//	if 0
+//		#include "H5MDReader.hpp"
+//	#endif
 #endif
 #include "FileBackup.hpp"
 
@@ -39,6 +44,9 @@ namespace espressopp {
       DumpGROAdress::registerPython();
 #ifdef HDF5_LAYER
       H5MDWriter::registerPython();
+//  	if 0
+//		H5MDReader::registerPython();
+//  	#endif
 #endif
     }
   }

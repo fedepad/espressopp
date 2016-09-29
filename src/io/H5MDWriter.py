@@ -124,7 +124,7 @@ from _espressopp import io_H5MDWriter
 class H5MDWriterLocal(ParticleAccessLocal, io_H5MDWriter):
 
   def __init__(self, system, integrator, filename='out.h5', author="Jack Sparrow", 
-               author_email="xxx", creator = espressopp.VersionLocal().name, 
+               author_email="username@domain.state", creator = espressopp.VersionLocal().name, 
                creator_version = ".".join([str(espressopp.VersionLocal().major), 
                                           str(espressopp.VersionLocal().minor), 
                                           str(espressopp.VersionLocal().patchlevel)]), 

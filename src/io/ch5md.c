@@ -101,6 +101,8 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
   status = H5Tclose(t);
   status = H5Gclose(g1);
 
+  status = H5Gclose(g); // to make it work in parallel, we have to close it.
+
   file.particles = H5Gcreate(file.id, "particles", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   file.observables = H5Gcreate(file.id, "observables", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   file.parameters = H5Gcreate(file.id, "parameters", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
@@ -114,6 +116,7 @@ int h5md_close_file(h5md_file file) {
   H5Gclose(file.particles);
   H5Gclose(file.observables);
   H5Gclose(file.parameters);
+
   //Any opened objects before file close?
 //  printf("Inside this loop before\n");
 //  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
@@ -132,30 +135,47 @@ int h5md_close_file(h5md_file file) {
 //}
 
   //hid_t grid;
-  //H5Gopen2(grid, "/h5md");
-
+  //H5Gopen2(grid, "/h5md", H5P_DEFAULT);
+  //should close h5md group
+ // H5Gclose(grid);
   //H5Gclose(33554432);
 
-
-  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
-  if (norphans > 1) { /* expect 1 for the file we have not closed */
-	 printf("Inside this loop after\n");
-	 int i;
-	 H5O_info_t info;
-	 char name[64];
-	 hid_t * objects = calloc(norphans, sizeof(hid_t));
-	 H5Fget_obj_ids(file.id, H5F_OBJ_ALL, -1, objects);
-	 for (i=0; i<norphans; i++) {
-		 H5Oget_info(objects[i], &info);
-		 H5Iget_name(objects[i], name, 64);
-		 printf("%d of %zd things still open: %d with name %s of type %d\n", i, norphans, objects[i], name, info.type);
-		 //if (info.type == H5O_TYPE_GROUP) H5Gclose(objects[i]);
-		 if (info.type == H5O_TYPE_GROUP) H5Gclose(objects[i]);
-	 }
-}
+  //H5Gclose(33554436);
 
 
   H5Fclose(file.id);
+
+
+//  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
+//  if (norphans > 1) { /* expect 1 for the file we have not closed */
+//	 printf("Inside this loop after\n");
+//	 int i;
+//	 H5O_info_t info[norphans];
+//	 char name[64];
+//	 hid_t * objects = calloc(norphans, sizeof(hid_t));
+//	 H5Fget_obj_ids(file.id, H5F_OBJ_ALL, -1, objects);
+//	 for (i=0; i<norphans; i++) {
+//		 H5Oget_info(objects[i], &info[i]);
+//		 H5Iget_name(objects[i], name, 64);
+//		 printf("%d of %zd things still open: %d with name %s of type %d\n", i, norphans, objects[i], name, info[i].type);
+//		 printf("objects id: %d\n", objects[i]);
+//		 if (info[i].type == H5O_TYPE_GROUP) {
+//
+//			 printf("What the hell is going on!!!!!\n");
+//			 H5Gopen2(objects[i], name, H5P_DEFAULT);
+//			 H5Gclose(objects[i]);
+//		 }
+//		 //if (info.type == H5O_TYPE_GROUP) H5Gclose(objects[i]);
+//	 }
+//}
+
+
+
+
+
+
+
+
 
 //  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
 //    if (norphans > 1) { /* expect 1 for the file we have not closed */
