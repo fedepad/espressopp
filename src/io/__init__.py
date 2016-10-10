@@ -35,7 +35,7 @@ try:
 except ImportError:
   pass
 
-try:
-  from espressopp.io.H5MDReader import *
-except ImportError:
-  pass
+# try:
+#   from espressopp.io.H5MDReader import *
+# except ImportError:
+#   pass
