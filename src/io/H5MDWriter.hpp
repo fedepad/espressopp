@@ -94,6 +94,7 @@ namespace espressopp {
     		  	  //setLengthUnit(_length_unit);
     	          info_table_ini table_store;
     	          set_init_table(table_store, data_to_store);
+    	          // we can create the file here, but we need to create with MPI in parallel...
 
 
     	          if (iomode == 1 || iomode == 0) {
@@ -160,7 +161,6 @@ namespace espressopp {
 
        std::set<std::string> ciao = getSetfrompythonlist(initial_list);
 
-
         if (ciao.find("all") != ciao.end())
         {
             table_init.all = 1;
@@ -180,6 +180,7 @@ namespace espressopp {
 
         }
 
+        //return std::set<std::string>
 
       };
 

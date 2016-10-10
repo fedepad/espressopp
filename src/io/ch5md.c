@@ -237,6 +237,25 @@ hid_t h5md_open_file (const char *filename)
 
 }
 
+h5md_particles_group h5md_create_observables_group(h5md_file file, const char *name)
+{
+  h5md_particles_group group;
+
+  group.group = H5Gcreate(file.observables, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  return group;
+}
+
+h5md_particles_group h5md_create_parameters_group(h5md_file file, const char *name)
+{
+  h5md_particles_group group;
+
+  group.group = H5Gcreate(file.parameters, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+
+  return group;
+}
+
+
 h5md_particles_group h5md_create_particles_group(h5md_file file, const char *name)
 {
   h5md_particles_group group;
@@ -399,7 +418,7 @@ int h5md_extend_by_one(hid_t dset, hsize_t *dims) {
 
 }
 
-int h5md_append(h5md_element e, void *data, int step, double time) {
+int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_id, int offset, int data_size) {
 
   hid_t mem_space, file_space;
   int i, rank;
@@ -428,7 +447,7 @@ int h5md_append(h5md_element e, void *data, int step, double time) {
       count[i] = dims[i];
     }
     H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
-    H5Dwrite(e.step, H5T_NATIVE_INT, mem_space, file_space, H5P_DEFAULT, (void *)&step);
+    H5Dwrite(e.step, H5T_NATIVE_INT, mem_space, file_space, plist_id, (void *)&step);
     H5Sclose(file_space);
     H5Sclose(mem_space);
 
@@ -450,7 +469,7 @@ int h5md_append(h5md_element e, void *data, int step, double time) {
       count[i] = dims[i];
     }
     H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
-    H5Dwrite(e.time, H5T_NATIVE_DOUBLE, mem_space, file_space, H5P_DEFAULT, (void *)&time);
+    H5Dwrite(e.time, H5T_NATIVE_DOUBLE, mem_space, file_space, plist_id, (void *)&time);
     H5Sclose(file_space);
     H5Sclose(mem_space);
   }
@@ -469,15 +488,20 @@ int h5md_append(h5md_element e, void *data, int step, double time) {
     start[i] = 0;
     count[i] = dims[i];
   }
+
+  // reuse logic in #
+
+  start[1] = offset;
+  count[1] = data_size;
   H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
-  H5Dwrite(e.value, e.datatype, mem_space, file_space, H5P_DEFAULT, data);
+  H5Dwrite(e.value, e.datatype, mem_space, file_space, plist_id, data);
   H5Sclose(file_space);
   H5Sclose(mem_space);
 
   return 0;
 }
 
-int h5md_create_box(h5md_particles_group *group, int dim, char *boundary[], bool is_time, double value[], h5md_element *link)
+int h5md_create_box(h5md_particles_group *group, int dim, const char *boundary[], bool is_time, double value[], h5md_element *link)
 {
   hid_t spc, att, t;
   hsize_t dims[1];

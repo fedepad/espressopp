@@ -27,8 +27,6 @@
 #include "storage/DomainDecomposition.hpp"
 #include "bc/BC.hpp"
 
-//#include "analysis/ConfigurationExt.hpp"
-//#include "analysis/ConfigurationsExt.hpp"
 #include "iterator/CellListIterator.hpp"
 
 #include "boost/mpi.hpp"
@@ -50,24 +48,18 @@
 //#include "H5Cpp.h"
 
 using namespace espressopp;
-//using namespace espressopp::analysis;
 using namespace std;
-
-
 using namespace boost::python;
-
-
 
 
 namespace espressopp {
   namespace io {
 
-
-
    void H5MDWriter::write_n_to_1(){
 
 
 	shared_ptr<System> system = getSystem();
+
 	char *ch_f_name = new char[file_name.length() + 1];
 	strcpy(ch_f_name, file_name.c_str());
 	int rank = system->comm->rank();
@@ -88,18 +80,38 @@ namespace espressopp {
 
 	//h5md_file h5md_create_file (file_name.c_str(), author.c_str(), NULL, creator.c_str(), creator_version.c_str(), 1);
 	h5md_file the_File = h5md_create_file (file_name.c_str(), author.c_str(), author_email.c_str(), creator.c_str(), creator_version.c_str(), 1);
-	h5md_particles_group atoms;
+	//h5md_particles_group atoms;
 
-	//const char *boundary[] = {"periodic", "periodic", "none"};
-	atoms = h5md_create_particles_group(the_File, "atoms");
+	const char *boundary[] = {"periodic", "periodic", "none"};
+	Real3D L = system->bc->getBoxL();
+	double box_edges[3];
+	box_edges[0] = L[0];
+	box_edges[1] = L[1];
+	box_edges[2] = L[2];
+
+	h5md_particles_group atoms = h5md_create_particles_group(the_File, "atoms");
+	//h5md_create_parameters_group(the_File, "parameters");
+	system->getSkin();
+	system->storage->getInt3DCellGrid();
+	int number_interactions = system->getNumberOfInteractions();
+	//for (i)
+
+	real maximum_cutoff = system->maxCutoff;
+
+	h5md_create_box(&atoms, 3, boundary, false, box_edges, NULL);
 
 	double* coordin = new double [myN];
 
 	size_t pids[myN];
 	//double velo[myN][3];
 	double coordina[myN][3];
-
-
+	//double velocities[myN][3];
+	//double forces[myN][3];
+	//double charges[myN];
+	//double masses[myN];
+	//double states[myN];
+	//double drifts[myN];
+	size_t types[myN];
 
 	CellList realCells = system->storage->getRealCells();
 
@@ -114,7 +126,7 @@ namespace espressopp {
 		  Int3D& img = cit->image();
 		  Real3D L = system->bc->getBoxL();
 		  pids[i] = cit->id();
-//		  particles_u[i].type = cit->type();
+		  types[i] = cit->type();
 //		  particles_u[i].mass = cit->mass();
 //		  particles_u[i].charge = cit->q();
 //		  particles_u[i].lambda = cit->lambda();
@@ -139,8 +151,9 @@ namespace espressopp {
 		  Real3D& pos = cit->position();
 		  //Real3D& vel = cit->velocity();
 		  //Real3D& force = cit->force();
+		  //if (datas.all)
 		  pids[i] = cit->id();
-//		  particles_u[i].type = cit->type();
+		  types[i] = cit->type();
 //		  particles_u[i].mass = cit->mass();
 //		  particles_u[i].charge = cit->q();
 //		  particles_u[i].lambda = cit->lambda();
@@ -162,71 +175,67 @@ namespace espressopp {
 	  }
 
 //
-//
+
 //	  // Create a time-dependent dataset
 //	  	// There is no data yet in "pos"
 	  	int RANK = 2;
 //	  	//hsize_t dims[RANK];
 	  	int dims[RANK];
 //
-	  	dims[0] = myN;
+	  	hsize_t count[RANK];
+		hsize_t offset[RANK];
+		hsize_t dimsf[RANK];
+		//        dimsf[0] = totalN;
+		//        dimsf[1] = 1;
+
+
+	  	dims[0] = totalN;
 	  	dims[1] = 3;
-//
-//
-////	  	typedef struct h5md_element_struct {
-////	  	  hid_t group;
-////	  	  hid_t step;
-////	  	  hid_t time;
-////	  	  hid_t value;
-////	  	  hid_t datatype;
-////	  	  int is_time;
-////	  	  int current_step;
-////	  	  struct h5md_element_struct *link;
-////	  	  struct h5md_particles_group_struct *particles_group;
-////	  	} h5md_element;
-////
-//
-//
-//
-	  	h5md_element posi;
-	  	posi.group = atoms.group;
-	  	posi.step = integrator->getStep();
-	  	posi.time = posi.step * integrator->getTimeStep();
 
-	  	posi.datatype = H5T_NATIVE_DOUBLE;
-	  	posi.is_time = 0;
-	  	posi.current_step = posi.step;
-	  	posi.link = NULL;
-	  	posi.particles_group = &atoms;
-	  	//posi.value = &coordina;
+	  	long long step = integrator->getStep();
+	  	real time_ = step * integrator->getTimeStep();
 
-	  	h5md_element pidd;
-		pidd.group = atoms.group;
-		pidd.step = integrator->getStep();
-		pidd.time = posi.step * integrator->getTimeStep();
+	  	atoms.position = h5md_create_time_data(atoms.group, "positions", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+	  	//atoms.position = h5md_create_fixed_data_simple(atoms.group, "position", RANK, dims, H5T_NATIVE_DOUBLE, coordina);
+	  	atoms.id = h5md_create_time_data(atoms.group, "pids", 1, &totalN, H5T_NATIVE_INT, NULL);
+	  	atoms.species = h5md_create_time_data(atoms.group, "types", 1, &totalN, H5T_NATIVE_INT, NULL);
 
-		pidd.datatype = H5T_NATIVE_LLONG;
-		pidd.is_time = 0;
-		pidd.current_step = posi.step;
-		pidd.link = NULL;
-		pidd.particles_group = &atoms;
-		//pidd.value = &pids;
 
-	  	atoms.position = h5md_create_time_data(atoms.group, "position", RANK, dims, H5T_NATIVE_DOUBLE, &posi);
-//	  	//atoms.position = h5md_create_fixed_data_simple(atoms.group, "position", RANK, dims, H5T_NATIVE_DOUBLE, coordina);
-	  	atoms.id = h5md_create_fixed_data_simple(atoms.group, "pid", 1, &myN, H5T_NATIVE_LLONG, &pids);
-//
-//
-//
-//
-//
-//
-//
-//
+	  	// As done in #xx
+	  	hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+	  	H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+
+        // logic to write a file contiguosly!
+		int sumup = 0;
+		count[0] = myN;
+		count[1] = dimsf[1];
+		if (rank == 0) {
+			offset[0] = rank;
+		} else {
+
+			for(int L=0; L<rank; L++) {
+				sumup += array_nparticles[L];
+			}
+
+			offset[0] = sumup;
+		}
+
+		offset[1] = 0;
+
+		std::cout << "start offset: " << offset[0] << std::endl;
+
+
+	  	h5md_append(atoms.position, coordina, step, time_, plist_id, offset[0], myN);
+	  	h5md_append(atoms.id, pids, step, time_, plist_id, offset[0], myN);
+	  	h5md_append(atoms.species, types, step, time_, plist_id, offset[0], myN);
+
+	  	H5Pclose(plist_id);
+
 //	  	H5Gclose(atoms.group);
 //	h5md_close_element(posi);
 	h5md_close_element(atoms.position);
 	h5md_close_element(atoms.id);
+	h5md_close_element(atoms.species);
 	H5Gclose(atoms.group);
 	h5md_close_file(the_File);
 
