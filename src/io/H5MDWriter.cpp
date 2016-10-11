@@ -45,8 +45,6 @@
     #include "ch5md.h"
 //#endif
 
-//#include "H5Cpp.h"
-
 using namespace espressopp;
 using namespace std;
 using namespace boost::python;
@@ -78,39 +76,77 @@ namespace espressopp {
 
 	boost::mpi::all_gather(*system->comm, myN, array_nparticles);  // needed for contiguous writing
 
-	//h5md_file h5md_create_file (file_name.c_str(), author.c_str(), NULL, creator.c_str(), creator_version.c_str(), 1);
 	h5md_file the_File = h5md_create_file (file_name.c_str(), author.c_str(), author_email.c_str(), creator.c_str(), creator_version.c_str(), 1);
-	//h5md_particles_group atoms;
 
-	const char *boundary[] = {"periodic", "periodic", "none"};
+	const char *boundary[] = {"periodic", "periodic", "periodic"};
+
 	Real3D L = system->bc->getBoxL();
 	double box_edges[3];
 	box_edges[0] = L[0];
 	box_edges[1] = L[1];
 	box_edges[2] = L[2];
+	long long step = integrator->getStep();
+	real time_ = step * integrator->getTimeStep();
+	std::string stepstring = static_cast<std::ostringstream*>(&(std::ostringstream() << step))->str();
+	std::string fin = "step_" + stepstring;
 
-	h5md_particles_group atoms = h5md_create_particles_group(the_File, "atoms");
+	h5md_particles_group atoms = h5md_create_particles_group(the_File, fin.c_str());
+	//hid_t atoms = H5Gcreate(atomsi.group, fin.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+	//h5md_particles_group atoms = h5md_create_particles_group()
 	//h5md_create_parameters_group(the_File, "parameters");
-	system->getSkin();
-	system->storage->getInt3DCellGrid();
-	int number_interactions = system->getNumberOfInteractions();
-	//for (i)
+	//system->getSkin();
+	//system->storage->getInt3DCellGrid();
+	//int number_interactions = system->getNumberOfInteractions();
 
-	real maximum_cutoff = system->maxCutoff;
+	//real maximum_cutoff = system->maxCutoff;
 
 	h5md_create_box(&atoms, 3, boundary, false, box_edges, NULL);
 
-	double* coordin = new double [myN];
+	//double* coordin = new double [myN];
+
+
+//		if (datas.pid == 1  || datas.all == 1)        size_t pids[myN];
+//		if (datas.position == 1 || datas.all == 1)    double coordina[myN][3];
+//		if (datas.velocity == 1 || datas.all == 1)    double velocities[myN][3];
+//		if (datas.type == 1 || datas.all == 1)        size_t types[myN];
+//		if (datas.force == 1 || datas.all == 1)       double forces[myN][3];
+//		if (datas.charge == 1 || datas.all == 1)      double charges[myN];
+//		if (datas.mass == 1 || datas.all == 1)        double masses[myN];
+//		if (datas.state == 1 || datas.all == 1)       int states[myN];
+//		if (datas.drift == 1 || datas.all == 1)       double drifts[myN];
+//		if (datas.lambda == 1 || datas.all == 1)      double lambdas[myN];
+//		if (datas.lambdaDeriv == 1 || datas.all == 1) double lambdaDerivs[myN];
+
+	int RANK = 2;
+	int dims[RANK];
+	dims[0] = totalN;
+	dims[1] = 3;
+
+
+
+
+	if (datas.position == 1 || datas.all == 1) 	  atoms.position = h5md_create_time_data(atoms.group, "positions", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+	if (datas.pid == 1 || datas.all == 1)      	  atoms.id = h5md_create_time_data(atoms.group, "pids", 1, &totalN, H5T_NATIVE_INT, NULL);
+	if (datas.type == 1 || datas.all == 1)     	  atoms.species = h5md_create_time_data(atoms.group, "types", 1, &totalN, H5T_NATIVE_INT, NULL);
+	if (datas.velocity == 1 || datas.all == 1) 	  atoms.velocity = h5md_create_time_data(atoms.group, "velocities", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+	if (datas.force == 1 || datas.all == 1)    	  atoms.force = h5md_create_time_data(atoms.group, "forces", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+	if (datas.mass == 1 || datas.all == 1)     	  atoms.mass = h5md_create_time_data(atoms.group, "masses", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+	if (datas.charge == 1 || datas.all == 1)   	  atoms.charge = h5md_create_time_data(atoms.group, "charges", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+	if (datas.state == 1 || datas.all == 1)       atoms.state = h5md_create_time_data(atoms.group, "states", 1, &totalN, H5T_NATIVE_INT, NULL);
+	if (datas.drift == 1 || datas.all == 1)       atoms.drift = h5md_create_time_data(atoms.group, "drifts", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+	if (datas.lambda == 1 || datas.all == 1)      atoms.lambda = h5md_create_time_data(atoms.group, "lambdas", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+	if (datas.lambdaDeriv == 1 || datas.all == 1) atoms.lambdaDeriv = h5md_create_time_data(atoms.group, "lambdaDerivs", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
 
 	size_t pids[myN];
-	//double velo[myN][3];
 	double coordina[myN][3];
-	//double velocities[myN][3];
-	//double forces[myN][3];
-	//double charges[myN];
-	//double masses[myN];
-	//double states[myN];
-	//double drifts[myN];
+	double velocities[myN][3];
+	double forces[myN][3];
+	double charges[myN];
+	double masses[myN];
+	int states[myN];
+	double drifts[myN];
+	double lambdas[myN];
+	double lambdaDerivs[myN];
 	size_t types[myN];
 
 	CellList realCells = system->storage->getRealCells();
@@ -118,57 +154,129 @@ namespace espressopp {
 	int i = 0;
 	assert( i == 0);
 
-	  if( unfolded ){
+	  if( unfolded ){ // can do just one loop, but might be less optimized.
 		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
+
+		  if (datas.pid == 1 || datas.all == 1) {
+			  pids[i] = cit->id();
+
+		  }
+		  if (datas.position == 1 || datas.all == 1) {
 		  Real3D& pos = cit->position();
-		 // Real3D& vel = cit->velocity();
-		  //Real3D& force = cit->force();
 		  Int3D& img = cit->image();
-		  Real3D L = system->bc->getBoxL();
-		  pids[i] = cit->id();
-		  types[i] = cit->type();
-//		  particles_u[i].mass = cit->mass();
-//		  particles_u[i].charge = cit->q();
-//		  particles_u[i].lambda = cit->lambda();
-//		  particles_u[i].drift = cit->drift();
-//		  particles_u[i].lambdaDeriv = cit->lambdaDeriv();
-//		  particles_u[i].state = cit->state();
 		  coordina[i][0] = pos[0] + img[0] * L[0];
 		  coordina[i][1] = pos[1] + img[1] * L[1];
 		  coordina[i][2] = pos[2] + img[2] * L[2];
-//		  particles_u[i].v[0] = vel[0];
-//		  particles_u[i].v[1] = vel[1];
-//		  particles_u[i].v[2] = vel[2];
-//		  particles_u[i].force[0] = force[0];
-//		  particles_u[i].force[1] = force[1];
-//		  particles_u[i].force[2] = force[2];
+		  }
+		  if (datas.velocity == 1 || datas.all == 1) {
+			  Real3D& vel = cit->velocity();
+			  velocities[i][0] = vel[0];
+			  velocities[i][1] = vel[1];
+			  velocities[i][2] = vel[2];
+
+		  }
+
+		  if (datas.type == 1 || datas.all == 1) {
+
+			  types[i] = cit->type();
+		  }
+		  if (datas.force == 1 || datas.all == 1) {
+			  Real3D& force = cit->force();
+			  forces[i][0] = force[0];
+			  forces[i][1] = force[1];
+			  forces[i][2] = force[2];
+		  }
+		  if (datas.mass == 1 || datas.all == 1) {
+
+			  masses[i] = cit->mass();
+		  }
+		  if (datas.state == 1) {
+
+			  states[i] = cit->state();
+		  }
+
+		  if (datas.drift == 1 || datas.all == 1) {
+
+			  drifts[i] = cit->drift();
+		  }
+
+		  if (datas.charge == 1 || datas.all == 1) {
+
+			  charges[i] = cit->q();
+		  }
+
+		  if (datas.lambda == 1 || datas.all == 1) {
+
+			  lambdas[i] = cit->lambda();
+		  }
+
+		  if (datas.lambdaDeriv == 1 || datas.all == 1) {
+
+			  lambdaDerivs[i] = cit->lambdaDeriv();
+		  }
 
 		  i++;
 		}
 	  }
 	  else{
 		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
+
+		  if (datas.pid == 1 || datas.all == 1) {
+			  pids[i] = cit->id();
+
+		  }
+		  if (datas.position == 1 || datas.all == 1) {
 		  Real3D& pos = cit->position();
-		  //Real3D& vel = cit->velocity();
-		  //Real3D& force = cit->force();
-		  //if (datas.all)
-		  pids[i] = cit->id();
-		  types[i] = cit->type();
-//		  particles_u[i].mass = cit->mass();
-//		  particles_u[i].charge = cit->q();
-//		  particles_u[i].lambda = cit->lambda();
-//		  particles_u[i].drift = cit->drift();
-//		  particles_u[i].lambdaDeriv = cit->lambdaDeriv();
-//		  particles_u[i].state = cit->state();
 		  coordina[i][0] = pos[0];
 		  coordina[i][1] = pos[1];
 		  coordina[i][2] = pos[2];
-//		  particles_u[i].v[0] = vel[0];
-//		  particles_u[i].v[1] = vel[1];
-//		  particles_u[i].v[2] = vel[2];
-//		  particles_u[i].force[0] = force[0];
-//		  particles_u[i].force[1] = force[1];
-//		  particles_u[i].force[2] = force[2];
+		  }
+		  if (datas.velocity == 1 || datas.all == 1) {
+			  Real3D& vel = cit->velocity();
+			  velocities[i][0] = vel[0];
+			  velocities[i][1] = vel[1];
+			  velocities[i][2] = vel[2];
+
+		  }
+
+		  if (datas.type == 1 || datas.all == 1) {
+
+			  types[i] = cit->type();
+		  }
+		  if (datas.force == 1 || datas.all == 1) {
+			  Real3D& force = cit->force();
+			  forces[i][0] = force[0];
+			  forces[i][1] = force[1];
+			  forces[i][2] = force[2];
+		  }
+		  if (datas.mass == 1 || datas.all == 1) {
+
+			  masses[i] = cit->mass();
+		  }
+		  if (datas.state == 1 || datas.all == 1) {
+
+			  states[i] = cit->state();
+		  }
+
+		  if (datas.drift == 1 || datas.all == 1) {
+
+			  drifts[i] = cit->drift();
+		  }
+
+		  if (datas.charge == 1 || datas.all == 1) {
+
+			  charges[i] = cit->q();
+		  }
+
+		  if (datas.lambda == 1 || datas.all == 1) {
+
+			  lambdas[i] = cit->lambda();
+		  }
+
+		  if (datas.lambdaDeriv == 1 || datas.all == 1) {
+
+			  lambdaDerivs[i] = cit->lambdaDeriv();
+		  }
 
 		  i++;
 		}
@@ -178,9 +286,9 @@ namespace espressopp {
 
 //	  // Create a time-dependent dataset
 //	  	// There is no data yet in "pos"
-	  	int RANK = 2;
-//	  	//hsize_t dims[RANK];
-	  	int dims[RANK];
+//	  	int RANK = 2;
+////	  	//hsize_t dims[RANK];
+//	  	int dims[RANK];
 //
 	  	hsize_t count[RANK];
 		hsize_t offset[RANK];
@@ -189,16 +297,6 @@ namespace espressopp {
 		//        dimsf[1] = 1;
 
 
-	  	dims[0] = totalN;
-	  	dims[1] = 3;
-
-	  	long long step = integrator->getStep();
-	  	real time_ = step * integrator->getTimeStep();
-
-	  	atoms.position = h5md_create_time_data(atoms.group, "positions", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-	  	//atoms.position = h5md_create_fixed_data_simple(atoms.group, "position", RANK, dims, H5T_NATIVE_DOUBLE, coordina);
-	  	atoms.id = h5md_create_time_data(atoms.group, "pids", 1, &totalN, H5T_NATIVE_INT, NULL);
-	  	atoms.species = h5md_create_time_data(atoms.group, "types", 1, &totalN, H5T_NATIVE_INT, NULL);
 
 
 	  	// As done in #xx
@@ -222,22 +320,36 @@ namespace espressopp {
 
 		offset[1] = 0;
 
-		std::cout << "start offset: " << offset[0] << std::endl;
+	if (datas.position == 1  || datas.all == 1)   h5md_append(atoms.position, coordina, step, time_, plist_id, offset[0], myN);
+	if (datas.pid == 1  || datas.all == 1)        h5md_append(atoms.id, pids, step, time_, plist_id, offset[0], myN);
+	if (datas.type == 1 || datas.all == 1)     	  h5md_append(atoms.species, types, step, time_, plist_id, offset[0], myN);
+	if (datas.velocity == 1 || datas.all == 1) 	  h5md_append(atoms.velocity, velocities, step, time_, plist_id, offset[0], myN);
+	if (datas.mass == 1 || datas.all == 1)     	  h5md_append(atoms.mass, masses, step, time_, plist_id, offset[0], myN);
+	if (datas.charge == 1 || datas.all == 1)   	  h5md_append(atoms.charge, charges, step, time_, plist_id, offset[0], myN);
+	if (datas.state == 1 || datas.all == 1)    	  h5md_append(atoms.state, states, step, time_, plist_id, offset[0], myN);
+	if (datas.drift == 1 || datas.all == 1)       h5md_append(atoms.drift, drifts, step, time_, plist_id, offset[0], myN);
+	if (datas.force == 1 || datas.all == 1)       h5md_append(atoms.force, forces, step, time_, plist_id, offset[0], myN);
+	if (datas.lambda == 1 || datas.all == 1)      h5md_append(atoms.lambda, lambdas, step, time_, plist_id, offset[0], myN);
+	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_append(atoms.lambdaDeriv, lambdaDerivs, step, time_, plist_id, offset[0], myN);
 
+  	H5Pclose(plist_id);
 
-	  	h5md_append(atoms.position, coordina, step, time_, plist_id, offset[0], myN);
-	  	h5md_append(atoms.id, pids, step, time_, plist_id, offset[0], myN);
-	  	h5md_append(atoms.species, types, step, time_, plist_id, offset[0], myN);
+	if (datas.position == 1 || datas.all == 1) 	  h5md_close_element(atoms.position);
+	if (datas.pid == 1 || datas.all == 1) 		  h5md_close_element(atoms.id);
+	if (datas.type == 1 || datas.all == 1) 		  h5md_close_element(atoms.species);
+	if (datas.velocity == 1 || datas.all == 1) 	  h5md_close_element(atoms.velocity);
+	if (datas.force == 1 || datas.all == 1) 	  h5md_close_element(atoms.force);
+	if (datas.mass == 1 || datas.all == 1) 		  h5md_close_element(atoms.mass);
+	if (datas.charge == 1 || datas.all == 1) 	  h5md_close_element(atoms.charge);
+	if (datas.state == 1 || datas.all == 1) 	  h5md_close_element(atoms.state);
+	if (datas.drift == 1 || datas.all == 1) 	  h5md_close_element(atoms.drift);
+	if (datas.lambda == 1 || datas.all == 1)      h5md_close_element(atoms.lambda);
+	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_close_element(atoms.lambdaDeriv);
 
-	  	H5Pclose(plist_id);
-
-//	  	H5Gclose(atoms.group);
-//	h5md_close_element(posi);
-	h5md_close_element(atoms.position);
-	h5md_close_element(atoms.id);
-	h5md_close_element(atoms.species);
-	H5Gclose(atoms.group);
-	h5md_close_file(the_File);
+	if (!append) {
+		H5Gclose(atoms.group);
+		h5md_close_file(the_File);
+	}
 
 	delete [] ch_f_name;
 	delete [] array_nparticles;
@@ -705,6 +817,9 @@ namespace espressopp {
 								  &H5MDWriter::setFilename)
 	    .add_property("iomode", &H5MDWriter::getIomode,
 								&H5MDWriter::setIomode)
+		.add_property("data_to_store", &H5MDWriter::getDataToStore,
+										&H5MDWriter::set_init_table)
+
         .add_property("unfolded", &H5MDWriter::getUnfolded,
                                   &H5MDWriter::setUnfolded)
         .add_property("length_factor", &H5MDWriter::getLengthFactor,

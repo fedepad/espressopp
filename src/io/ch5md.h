@@ -41,6 +41,11 @@ typedef struct h5md_particles_group_struct {
   h5md_element mass;
   h5md_element species;
   h5md_element id;
+  // added to save extra particle properties and keep the struct
+  h5md_element state;
+  h5md_element drift;
+  h5md_element lambda;
+  h5md_element lambdaDeriv;
   h5md_element charge;
   int local_size_max;
 } h5md_particles_group;

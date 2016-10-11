@@ -92,8 +92,10 @@ namespace espressopp {
     	                          append(_append) {
 
     		  	  //setLengthUnit(_length_unit);
-    	          info_table_ini table_store;
-    	          set_init_table(table_store, data_to_store);
+    	          //info_table_ini table_store;
+    			  //printf("datas before setting: pid %d\n", datas.pid);
+    	          set_init_table(&datas, data_to_store);
+    	          //printf("datas after setting: pid %d\n", datas.pid);
     	          // we can create the file here, but we need to create with MPI in parallel...
 
 
@@ -157,32 +159,37 @@ namespace espressopp {
 
 	  };
 
-      void set_init_table(info_table_ini table_init, boost::python::list initial_list){
-
+      void set_init_table(info_table_ini* table_init, boost::python::list initial_list){
+    	  //printf("Are we called ?\n");
        std::set<std::string> ciao = getSetfrompythonlist(initial_list);
 
         if (ciao.find("all") != ciao.end())
         {
-            table_init.all = 1;
+        	//printf("Should NOT be inside ALLLLLLL!!!!!\n");
+            table_init->all = 1;
         } else {
 
-            if (ciao.find("pid") != ciao.end()) {table_init.pid = 1;}
-            if (ciao.find("type") != ciao.end()) {table_init.type = 1;}
-            if (ciao.find("mass") != ciao.end()) {table_init.mass = 1;}
-            if (ciao.find("charge") != ciao.end()) {table_init.charge = 1;}
-            if (ciao.find("lambda") != ciao.end()) {table_init.lambda = 1;}
-            if (ciao.find("drift") != ciao.end()) {table_init.drift = 1;}
-            if (ciao.find("lambdaDeriv") != ciao.end()) {table_init.lambdaDeriv = 1;}
-            if (ciao.find("state") != ciao.end()) {table_init.state = 1;}
-            if (ciao.find("position") != ciao.end()) {table_init.position = 1;}
-            if (ciao.find("velocity") != ciao.end()) {table_init.velocity = 1;}
-            if (ciao.find("force") != ciao.end()) {table_init.force = 1;}
+            if (ciao.find("pid") != ciao.end()) {table_init->pid = 1;}
+            if (ciao.find("type") != ciao.end()) {table_init->type = 1;}
+            if (ciao.find("mass") != ciao.end()) {table_init->mass = 1;}
+            if (ciao.find("charge") != ciao.end()) {table_init->charge = 1;}
+            if (ciao.find("lambda") != ciao.end()) {table_init->lambda = 1;}
+            if (ciao.find("drift") != ciao.end()) {table_init->drift = 1;}
+            if (ciao.find("lambdaDeriv") != ciao.end()) {table_init->lambdaDeriv = 1;}
+            if (ciao.find("state") != ciao.end()) {table_init->state = 1;}
+            if (ciao.find("position") != ciao.end()) {table_init->position = 1;}
+            if (ciao.find("velocity") != ciao.end()) {table_init->velocity = 1;}
+            if (ciao.find("force") != ciao.end()) {table_init->force = 1;}
 
         }
 
         //return std::set<std::string>
 
       };
+
+
+      boost::python::list getDataToStore() {return data_to_store;}
+
 
       std::string getLengthUnit(){return length_unit;}
       void setLengthUnit(std::string v){
