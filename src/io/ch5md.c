@@ -22,13 +22,10 @@
 #define MAX_CHUNK 256
 #define MAX_RANK 5
 
-// FGP: adding extensions for parallel I/O as comments
-// in case of MPI in addition to a filespace one need to define memory space which is the process-local view of the data, while the filespace
 
 h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel)  // parallel default, otherwise fall back to serial lib...-> parallel = 0
-//h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version)
 {
-  // FGP: adding extensions for parallel I/O as comments
+
   h5md_file file;
   hid_t g, g1;
   hid_t a, s, t;
@@ -44,7 +41,7 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
     assert(file.id > 0);
 
   } else if (parallel == 1) {
-	printf("In parallel mode!\n");
+	//printf("In parallel mode!\n");
     acc_template = H5Pcreate(H5P_FILE_ACCESS);
     MPI_Info info;
     MPI_Info_create(&info);
@@ -475,6 +472,7 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
   }
 
   h5md_extend_by_one(e.value, dims);
+  dims[1] = data_size;
 
   // Select the hyperslab
   file_space = H5Dget_space(e.value);
