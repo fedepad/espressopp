@@ -53,6 +53,24 @@ using namespace boost::python;
 namespace espressopp {
   namespace io {
 
+
+  void H5MDWriter::open() {}
+  void H5MDWriter::sort_by_pid() {}
+  void H5MDWriter::close_file() {
+
+	  // move here closing of all the elements and the file
+
+
+  }
+  void H5MDWriter::flush_file_stable_storage() {
+
+	  // move here flush to stable storage to avoid corruptions
+	  //H5Fflush()
+
+
+  }
+
+
    void H5MDWriter::write_n_to_1(){
 
 
