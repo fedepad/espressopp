@@ -126,6 +126,18 @@ namespace espressopp {
         write();
       }
 
+      /*
+       * essential helper routines
+       *
+       */
+      void open();
+      void sort_by_pid();
+      void flush_file_stable_storage();
+      void close_file();
+      /*
+       * write helper routines
+       *
+       */
       void write_n_to_1();
       void write_n_to_n();
       void write();
