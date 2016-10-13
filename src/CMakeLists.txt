@@ -9,6 +9,9 @@ file(GLOB_RECURSE NOT_ESPRESSO_SOURCES
   storage/unittest/*.cpp
   bc/unittest/*.cpp
   integrator/unittest/*.cpp
+  io/h5mdxx.cpp
+  io/h5xx/*.cpp
+  io/H5MDReader.cpp
 )
 list(REMOVE_ITEM ESPRESSO_SOURCES ${NOT_ESPRESSO_SOURCES})
 

@@ -98,7 +98,7 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
   status = H5Tclose(t);
   status = H5Gclose(g1);
 
-  status = H5Gclose(g); // to make it work in parallel, we have to close it.
+  status = H5Gclose(g); // to make it work in parallel, we have to close it. Without closing it seems to work in serial case...????!!!
 
   file.particles = H5Gcreate(file.id, "particles", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   file.observables = H5Gcreate(file.id, "observables", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);

@@ -6,8 +6,9 @@
  * of the BSD license. See the LICENSE file for details.
  */
 
-#include "h5xx/h5xx.hpp"
 #include "h5mdxx.hpp"
+//#include "h5xx/attribute.hpp"
+//#include "h5xx/attribute/boost_array.hpp"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -23,170 +24,61 @@
 #define MAX_RANK 5
 
 
-h5md_file h5md_create_file (const std::string& filename, const std::string& author, const std::string& author_email, const std::string& creator, const std::string& creator_version, int parallel)
+h5md_file h5md_create_file (const std::string& filename, const std::string& author, const std::string& author_email, const std::string& creator, const std::string& creator_version)
 {
 
   h5md_file file;
-  hid_t g, g1;
-  hid_t a, s, t;
-  hsize_t dims[1];
-  herr_t status;
-  hid_t acc_template;
-  file.version[0] = 1;
-  file.version[1] = 0;
+  file.version = {{1, 0}};
 
-  //acc_template = H5Pcreate(H5P_FILE_ACCESS);
   MPI_Info info;
   MPI_Info_create(&info);
   const char* hint_stripe = "striping_unit";
   const char* stripe_value = "4194304";
   MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
   //add my detection of fs...don't know where it went!!!!!
-  //H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
-  //file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template);
-  //h5xx::file fileh = file(filename, comm, info, h5xx::file::out);
-  h5xx::file hdf5_file = file(filename, comm, info, h5xx::file::trunc); // default
-  file.id = hdf5_file.hid();
-  assert(file.id > 0);
+   //h5xx::file fileh = file(filename, MPI_COMM_WORLD, info, h5xx::file::out); // this should append ....?
+  h5xx::file hdf5_file = file(filename, MPI_COMM_WORLD, info, h5xx::file::trunc); // default
+  file.id = hdf5_file.hid_;
 
   h5xx::group h5md_group = group(hdf5_file, "h5md");
 
-  g = H5Gcreate(file.id, "h5md", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-  dims[0] = 2;
-
-
   h5xx::write_attribute(h5md_group, "version", file.version);
 
-//    s = H5Screate_simple(1, dims, NULL);
-//  a = H5Acreate(g, "version", H5T_NATIVE_INT, s, H5P_DEFAULT, H5P_DEFAULT);
-//  status = H5Awrite(a, H5T_NATIVE_INT, file.version);
-//  status = H5Aclose(a);
-//  status = H5Sclose(s);
+  h5xx::group author_group = group(h5md_group, "author");
+  h5xx::write_attribute(author_group, "name", author);
 
-  s = H5Screate(H5S_SCALAR);
-
-  g1 = H5Gcreate(g, "author", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  t = H5Tcopy(H5T_C_S1);
-  status = H5Tset_size(t, strlen(author));
-  a = H5Acreate(g1, "name", t, s, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(a, t, author);
-  status = H5Aclose(a);
-  status = H5Tclose(t);
   if (NULL!=author_email) {
-    t = H5Tcopy(H5T_C_S1);
-    status = H5Tset_size(t, strlen(author_email));
-    a = H5Acreate(g1, "author_email", t, s, H5P_DEFAULT, H5P_DEFAULT);
-    status = H5Awrite(a, t, author_email);
-    status = H5Aclose(a);
-    status = H5Tclose(t);
+	  h5xx::write_attribute(author_group, "author_email", author_email);
   }
-  status = H5Gclose(g1);
 
-  g1 = H5Gcreate(g, "creator", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  t = H5Tcopy(H5T_C_S1);
-  status = H5Tset_size(t, strlen(creator));
-  a = H5Acreate(g1, "name", t, s, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(a, t, creator);
-  status = H5Aclose(a);
-  status = H5Tclose(t);
-  t = H5Tcopy(H5T_C_S1);
-  status = H5Tset_size(t, strlen(creator_version));
-  a = H5Acreate(g1, "version", t, s, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(a, t, creator_version);
-  status = H5Aclose(a);
-  status = H5Tclose(t);
-  status = H5Gclose(g1);
+  h5xx::group creator_group = group(h5md_group, "creator");
+  h5xx::write_attribute(creator_group, "name", creator);
+  h5xx::write_attribute(creator_group, "version", creator_version);
 
-  status = H5Gclose(g); // to make it work in parallel, we have to close it.
+  h5xx::group particles_group = group(h5md_group, "Particles");
+  h5xx::group observables_group = group(h5md_group, "Observables");
+  h5xx::group parameters_group = group(h5md_group, "Parameters");
 
-  file.particles = H5Gcreate(file.id, "particles", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  file.observables = H5Gcreate(file.id, "observables", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-  file.parameters = H5Gcreate(file.id, "parameters", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+  file.particles = particles_group.hid_;
+  file.observables = observables_group.hid_;
+  file.parameters = parameters_group.hid_;
 
-  H5Pclose(acc_template);
 
   return file;
 }
 
 int h5md_close_file(h5md_file file) {
+	//int h5md_close_file(h5xx::file filetemp) {
   H5Gclose(file.particles);
   H5Gclose(file.observables);
   H5Gclose(file.parameters);
-
-  //Any opened objects before file close?
-//  printf("Inside this loop before\n");
-//  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
-//  if (norphans > 1) { /* expect 1 for the file we have not closed */
-//	 int i;
-//	 H5O_info_t info;
-//	 char name[64];
-//	 hid_t * objects = calloc(norphans, sizeof(hid_t));
-//	 H5Fget_obj_ids(file.id, H5F_OBJ_ALL, -1, objects);
-//	 for (i=0; i<norphans; i++) {
-//		 H5Oget_info(objects[i], &info);
-//		 H5Iget_name(objects[i], name, 64);
-//		 printf("%d of %zd things still open: %d with name %s of type %d\n", i, norphans, objects[i], name, info.type);
-//		 //if (info.type == H5O_TYPE_GROUP) H5Gclose(objects[i]);
-//	 }
-//}
-
-  //hid_t grid;
-  //H5Gopen2(grid, "/h5md", H5P_DEFAULT);
-  //should close h5md group
- // H5Gclose(grid);
-  //H5Gclose(33554432);
-
-  //H5Gclose(33554436);
-
-
-  H5Fclose(file.id);
-
-
-//  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
-//  if (norphans > 1) { /* expect 1 for the file we have not closed */
-//	 printf("Inside this loop after\n");
-//	 int i;
-//	 H5O_info_t info[norphans];
-//	 char name[64];
-//	 hid_t * objects = calloc(norphans, sizeof(hid_t));
-//	 H5Fget_obj_ids(file.id, H5F_OBJ_ALL, -1, objects);
-//	 for (i=0; i<norphans; i++) {
-//		 H5Oget_info(objects[i], &info[i]);
-//		 H5Iget_name(objects[i], name, 64);
-//		 printf("%d of %zd things still open: %d with name %s of type %d\n", i, norphans, objects[i], name, info[i].type);
-//		 printf("objects id: %d\n", objects[i]);
-//		 if (info[i].type == H5O_TYPE_GROUP) {
-//
-//			 printf("What the hell is going on!!!!!\n");
-//			 H5Gopen2(objects[i], name, H5P_DEFAULT);
-//			 H5Gclose(objects[i]);
-//		 }
-//		 //if (info.type == H5O_TYPE_GROUP) H5Gclose(objects[i]);
-//	 }
-//}
-
-
-
-
-
-
-
-
-
-//  int norphans = H5Fget_obj_count(file.id, H5F_OBJ_ALL);
-//    if (norphans > 1) { /* expect 1 for the file we have not closed */
-//  	 int i;
-//  	 H5O_info_t info;
-//  	 char name[64];
-//  	 hid_t * objects = calloc(norphans, sizeof(hid_t));
-//  	 H5Fget_obj_ids(file.id, H5F_OBJ_ALL, -1, objects);
-//  	 for (i=0; i<norphans; i++) {
-//  		 H5Oget_info(objects[i], &info);
-//  		 H5Iget_name(objects[i], name, 64);
-//  		 printf("%d of %zd things still open: %d with name %s of type %d\n", i, norphans, objects[i], name, info.type);
-//  	 }
+//  boost::array<std::string, 3> = {{"Particles", "Observables", "Parameters"}}
+//  if ((hid_t gr = h5xx::open_group(filetemp.hid_, "/h5md/Particles")) > 0) {
+//	  H5Gclose(gr);
 //  }
+
+//		filetemp.close();
+  H5Fclose(file.id);
 
   return 0;
 }

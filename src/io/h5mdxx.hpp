@@ -13,11 +13,16 @@
 extern "C" {
 #endif
 
-#include "hdf5.h"
 #include "h5xx/h5xx.hpp"
+//#include "h5xx/attribute.hpp"
+#include "boost/array.hpp"
 #include <stdbool.h>
 
 #define CH5MD_RANK_ERROR -10
+
+
+typedef boost::array<char const*, 2> array_type_const_char;
+typedef boost::array<int, 2> array_type_int_size_2;
 
 typedef struct h5md_element_struct {
   hid_t group;
@@ -53,14 +58,13 @@ typedef struct h5md_particles_group_struct {
 
 typedef struct {
   hid_t id;
-  int version[2];
-  //boost::array
+  array_type_int_size_2 version;
   hid_t particles;
   hid_t observables;
   hid_t parameters;
 } h5md_file;
 
-h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel);
+h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version);
 int h5md_close_file(h5md_file file);
 hid_t h5md_open_file (const char *filename);
 h5md_particles_group h5md_create_particles_group(h5md_file file, const char *name);
