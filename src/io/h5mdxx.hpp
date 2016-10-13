@@ -54,6 +54,7 @@ typedef struct h5md_particles_group_struct {
 typedef struct {
   hid_t id;
   int version[2];
+  //boost::array
   hid_t particles;
   hid_t observables;
   hid_t parameters;

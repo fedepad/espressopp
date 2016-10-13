@@ -1,6 +1,6 @@
 /*
   Copyright (C) 2016
-      Max Planck Institute for Polymer Research & JGU Mainz
+      JGU Mainz
 
   This file is part of ESPResSo++.
 

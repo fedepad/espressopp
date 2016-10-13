@@ -6,8 +6,8 @@
  * of the BSD license. See the LICENSE file for details.
  */
 
-#include "hdf5.h"
-#include "ch5md.h"
+#include "h5xx/h5xx.hpp"
+#include "h5mdxx.hpp"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -23,7 +23,7 @@
 #define MAX_RANK 5
 
 
-h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel)  // parallel default, otherwise fall back to serial lib...-> parallel = 0
+h5md_file h5md_create_file (const std::string& filename, const std::string& author, const std::string& author_email, const std::string& creator, const std::string& creator_version, int parallel)
 {
 
   h5md_file file;
@@ -35,34 +35,34 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
   file.version[0] = 1;
   file.version[1] = 0;
 
-  if (parallel == 0 ) {
+  //acc_template = H5Pcreate(H5P_FILE_ACCESS);
+  MPI_Info info;
+  MPI_Info_create(&info);
+  const char* hint_stripe = "striping_unit";
+  const char* stripe_value = "4194304";
+  MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
+  //add my detection of fs...don't know where it went!!!!!
+  //H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
+  //file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template);
+  //h5xx::file fileh = file(filename, comm, info, h5xx::file::out);
+  h5xx::file hdf5_file = file(filename, comm, info, h5xx::file::trunc); // default
+  file.id = hdf5_file.hid();
+  assert(file.id > 0);
 
-    file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-    assert(file.id > 0);
-
-  } else if (parallel == 1) {
-	//printf("In parallel mode!\n");
-    acc_template = H5Pcreate(H5P_FILE_ACCESS);
-    MPI_Info info;
-    MPI_Info_create(&info);
-    const char* hint_stripe = "striping_unit";
-    const char* stripe_value = "4194304";
-    MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
-    //add my detection of fs...don't know where it went!!!!!
-    H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
-    file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template);
-    assert(file.id > 0);
-
-  }
+  h5xx::group h5md_group = group(hdf5_file, "h5md");
 
   g = H5Gcreate(file.id, "h5md", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
   dims[0] = 2;
-  s = H5Screate_simple(1, dims, NULL);
-  a = H5Acreate(g, "version", H5T_NATIVE_INT, s, H5P_DEFAULT, H5P_DEFAULT);
-  status = H5Awrite(a, H5T_NATIVE_INT, file.version);
-  status = H5Aclose(a);
-  status = H5Sclose(s);
+
+
+  h5xx::write_attribute(h5md_group, "version", file.version);
+
+//    s = H5Screate_simple(1, dims, NULL);
+//  a = H5Acreate(g, "version", H5T_NATIVE_INT, s, H5P_DEFAULT, H5P_DEFAULT);
+//  status = H5Awrite(a, H5T_NATIVE_INT, file.version);
+//  status = H5Aclose(a);
+//  status = H5Sclose(s);
 
   s = H5Screate(H5S_SCALAR);
 
@@ -104,7 +104,7 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
   file.observables = H5Gcreate(file.id, "observables", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
   file.parameters = H5Gcreate(file.id, "parameters", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
-  if (parallel == 1) H5Pclose(acc_template);
+  H5Pclose(acc_template);
 
   return file;
 }
