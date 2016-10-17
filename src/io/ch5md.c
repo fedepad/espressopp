@@ -318,6 +318,13 @@ h5md_element h5md_create_time_data(hid_t loc, const char *name, int rank, int in
   spc = H5Screate_simple( rank+1 , dims, max_dims) ;
   plist = H5Pcreate(H5P_DATASET_CREATE);
   status = H5Pset_chunk(plist, rank+1, chunks);
+  int mpi_rankk;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rankk);
+  printf("chunks[0]: %d, chunks[1]: %d; from MPI rank: %d\n", chunks[0], chunks[1], mpi_rankk);
+  const int fill_value_pids = -1;
+  //if (strcmp(name, "pids") == 0) {
+//	  H5Pset_fill_value(plist, H5T_NATIVE_INT, &fill_value_pids);
+  //}
   td.value = H5Dcreate(td.group, "value", datatype, spc, H5P_DEFAULT, plist, H5P_DEFAULT);
   H5Pclose(plist);
   status = H5Sclose(spc);
@@ -417,6 +424,7 @@ int h5md_extend_by_one(hid_t dset, hsize_t *dims) {
 
 int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_id, int offset, int data_size) {
 
+  //printf("offset: %d\n", offset);
   hid_t mem_space, file_space;
   int i, rank;
   hsize_t dims[H5S_MAX_RANK];
@@ -491,6 +499,9 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
 
   start[1] = offset;
   count[1] = data_size;
+  int mpi_rankk;
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rankk);
+  printf("start[0]: %d, start[1]: %d, count[0]: %d, count[1]: %d; from MPI rank: %d\n", start[0], start[1], count[0], count[1], mpi_rankk);
   H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
   H5Dwrite(e.value, e.datatype, mem_space, file_space, plist_id, data);
   H5Sclose(file_space);

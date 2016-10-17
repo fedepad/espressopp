@@ -1,6 +1,6 @@
 /*
   Copyright (C) 2016
-      Max Planck Institute for Polymer Research & JGU Mainz
+      JGU Mainz
 
   This file is part of ESPResSo++.
 
@@ -19,28 +19,32 @@
 */
 
 // ESPP_CLASS
-#ifndef _IO_H5MDWRITER_HPP
-#define _IO_H5MDWRITER_HPP
+#ifndef _IO_H5MDXXWRITER_HPP
+#define _IO_H5MDXXWRITER_HPP
 
 // http://stackoverflow.com/questions/10056393/g-with-python-h-how-to-compile
 // http://realmike.org/blog/2012/07/08/embedding-python-tutorial-part-1/
 #include "ParticleAccess.hpp"  // keep python.hpp on top
 #include "System.hpp"
 #include "integrator/MDIntegrator.hpp"
-#include "bc/BC.hpp"
 #include "storage/Storage.hpp"
 #include "io/FileBackup.hpp"
 #include "esutil/Error.hpp"
 #include "Version.hpp"
 #include "template_py_to_cpp_containers.hpp"
+#include "h5xx/h5xx.hpp"
 #include <string>
 #include <set>
 
 #include <boost/python/def.hpp>
 #include <boost/python/module.hpp>
 #include <boost/python/args.hpp>
-#include "ch5md.h"
 
+typedef boost::array<int, 2> array_type_int_size_2;
+typedef boost::multi_array<int, 2> array_2d_t;
+typedef boost::multi_array<int, 1> array_1d_t;
+typedef boost::multi_array<double, 2> array_2d_dbl_t;
+typedef boost::array<std::string, 11> array_type_string_size_11;
 
 namespace espressopp {
   namespace io{
@@ -63,11 +67,11 @@ namespace espressopp {
 
 
 
-    class H5MDWriter : public ParticleAccess {
+    class H5MDxxWriter : public ParticleAccess {
 
     public:
 
-    	H5MDWriter(shared_ptr<System> system,
+    	H5MDxxWriter(shared_ptr<System> system,
     	                shared_ptr<integrator::MDIntegrator> _integrator,
     	                std::string _file_name,
     					std::string _author,
@@ -122,58 +126,108 @@ namespace espressopp {
     	          }
 
 
-    	          	int rank = system->comm->rank();
-    	          	int mpi_ranks = system->comm->size();
-    	          	std::string rankstring = static_cast<std::ostringstream*>( &(std::ostringstream() << rank) )->str();
+    	      	int rank = system->comm->rank();
+    	      	int mpi_ranks = system->comm->size();
+    	      	//string rankstring = static_cast<ostringstream*>( &(ostringstream() << rank) )->str();
 
-    	          	int ierr;
-    	          	int myN = system->storage->getNRealParticles();  // could avoid this call by putting a counter in the Cells loop below...
-    	          	int maxN;   // maximal number of particles one processor has
-    	          	int totalN; // total number of particles all processors have
+    	      	int ierr;
+    	      	int myN = system->storage->getNRealParticles();  // could avoid this call by putting a counter in the Cells loop below...
+    	      	int maxN;   // maximal number of particles one processor has
+    	      	int totalN; // total number of particles all processors have
 
-    	          	boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
-    	          	boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace
+    	      	boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
+    	      	boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace
 
-    	          	int* array_nparticles = new int [mpi_ranks];   // to write contiguous in file
+    	      	int* array_nparticles = new int [mpi_ranks];   // to write contiguous in file
 
-    	          	boost::mpi::all_gather(*system->comm, myN, array_nparticles);  // needed for contiguous writing
-
-    	          	h5md_file the_File = h5md_create_file (file_name.c_str(), author.c_str(), author_email.c_str(), creator.c_str(), creator_version.c_str(), 1);
-
-    	          	const char *boundary[] = {"periodic", "periodic", "periodic"};
-
-    	          	Real3D L = system->bc->getBoxL();
-    	          	double box_edges[3];
-    	          	box_edges[0] = L[0];
-    	          	box_edges[1] = L[1];
-    	          	box_edges[2] = L[2];
-    	          	long long step = integrator->getStep();
-    	          	real time_ = step * integrator->getTimeStep();
-    	          	std::string stepstring = static_cast<std::ostringstream*>(&(std::ostringstream() << step))->str();
-    	          	std::string fin = "step_" + stepstring;
-
-    	          	part_group = h5md_create_particles_group(the_File, "Atoms");
-    	          	h5md_create_box(&part_group, 3, boundary, false, box_edges, NULL);
-
-    	        	int RANK = 2;
-    	        	int dims[RANK];
-    	        	dims[0] = totalN;
-    	        	dims[1] = 3;
+    	      	boost::mpi::all_gather(*system->comm, myN, array_nparticles);  // needed for contiguous writing
 
 
+			 // will create a file and the particles group
+				MPI_Info info;
+				MPI_Info_create(&info);
+				const char* hint_stripe = "striping_unit";
+				const char* stripe_value = "4194304";
+				MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
+				//add my detection of fs...don't know where it went!!!!!
+				 //h5xx::file fileh = file(filename, MPI_COMM_WORLD, info, h5xx::file::out); // this should append ....?
+				hdf5_file = h5xx::file(file_name, MPI_COMM_WORLD, info, h5xx::file::trunc); // default
+
+				h5xx::group h5md_group = h5xx::group(hdf5_file, "h5md");
+
+				array_type_int_size_2 version_attr = {{1, 0}};
+				h5xx::write_attribute(h5md_group, "version", version_attr);
+
+				h5xx::group author_group = h5xx::group(h5md_group, "author");
+				h5xx::write_attribute(author_group, "name", author);
+
+				if (!author_email.empty()) {
+				  h5xx::write_attribute(author_group, "author_email", author_email);
+				}
+
+				h5xx::group creator_group = h5xx::group(h5md_group, "creator");
+				h5xx::write_attribute(creator_group, "name", creator);
+				h5xx::write_attribute(creator_group, "version", creator_version);
+
+				h5xx::group particles_group = h5xx::group(h5md_group, "particles");
+				h5xx::group observables_group = h5xx::group(h5md_group, "observables");
+				h5xx::group parameters_group = h5xx::group(h5md_group, "parameters");
+				// create a group inside the "Particles group" --> this will hold all the subgroups pids, positions, etc.
+
+				atoms_group = h5xx::group(particles_group, "atoms");
+				// here ends the creation of the file and of the particles group
+
+				// can create the particles related datasets here ???!!!
+
+				std::vector<size_t> dataspace_2d_dims;
+				dataspace_2d_dims[0] = totalN;
+				dataspace_2d_dims[1] = 3;
+				std::vector<size_t> dataspace_1d_dims;
+				dataspace_1d_dims[0] = totalN;
+				dataspace_1d_dims[0] = 1;
+
+				std::vector<size_t> chunk_dims;
+				chunk_dims[0] = 128;
+				chunk_dims[1] = 128;
 
 
-    	        	if (datas.position == 1 || datas.all == 1) 	  part_group.position = h5md_create_time_data(part_group.group, "positions", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.pid == 1 || datas.all == 1)      	  part_group.id = h5md_create_time_data(part_group.group, "pids", 1, &totalN, H5T_NATIVE_INT, NULL);
-    	        	if (datas.type == 1 || datas.all == 1)     	  part_group.species = h5md_create_time_data(part_group.group, "types", 1, &totalN, H5T_NATIVE_INT, NULL);
-    	        	if (datas.velocity == 1 || datas.all == 1) 	  part_group.velocity = h5md_create_time_data(part_group.group, "velocities", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.force == 1 || datas.all == 1)    	  part_group.force = h5md_create_time_data(part_group.group, "forces", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.mass == 1 || datas.all == 1)     	  part_group.mass = h5md_create_time_data(part_group.group, "masses", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.charge == 1 || datas.all == 1)   	  part_group.charge = h5md_create_time_data(part_group.group, "charges", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.state == 1 || datas.all == 1)       part_group.state = h5md_create_time_data(part_group.group, "states", 1, &totalN, H5T_NATIVE_INT, NULL);
-    	        	if (datas.drift == 1 || datas.all == 1)       part_group.drift = h5md_create_time_data(part_group.group, "drifts", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.lambda == 1 || datas.all == 1)      part_group.lambda = h5md_create_time_data(part_group.group, "lambdas", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.lambdaDeriv == 1 || datas.all == 1) part_group.lambdaDeriv = h5md_create_time_data(part_group.group, "lambdaDerivs", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+				h5xx::dataspace space_1d(dataspace_1d_dims);
+				h5xx::dataspace space_2d(dataspace_2d_dims);
+
+				array_type_string_size_11 datasets_names {{"positions", "pids", "types", "velocities", "forces", "masses", "charges", "states", "drifts", "lambdas", "lambdaDerivs"}};
+
+				//boost::array<size_t, myN> pids;
+				//boost::array<size_t, myN> types;
+				array_2d_dbl_t positions(boost::extents[myN][3]);
+				array_2d_dbl_t velocities(boost::extents[myN][3]);
+				array_2d_dbl_t forces(boost::extents[myN][3]);
+				//boost::array<double, myN> charges;
+				//boost::array<double, myN> masses;
+				//boost::array<int, myN> states;
+				//boost::array<double, myN> drifts;
+				//boost::array<double, myN> lambdas;
+				//boost::array<double, myN> lambdaDerivs;
+				std::vector<size_t> pids = std::vector<size_t>(myN);
+				std::vector<size_t> types = std::vector<size_t>(myN);
+				std::vector<double> charges = std::vector<double>(myN);
+				std::vector<double> masses = std::vector<double>(myN);
+				std::vector<int> states = std::vector<int>(myN);
+				std::vector<double> drifts = std::vector<double>(myN);
+				std::vector<double> lambdas = std::vector<double>(myN);
+				std::vector<double> lambdaDerivs = std::vector<double>(myN);
+
+				if (datas.position == 1 || datas.all == 1) 	 	h5xx::create_dataset(atoms_group, datasets_names[0], array_2d_dbl_t, space_2d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.pid == 1 || datas.all == 1)      	 	h5xx::create_dataset(atoms_group, datasets_names[1], std::vector<size_t>, space_1d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.type == 1 || datas.all == 1)     	 	h5xx::create_dataset(atoms_group, datasets_names[2], std::vector<size_t>, space_1d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.velocity == 1 || datas.all == 1) 	 	h5xx::create_dataset(atoms_group, datasets_names[3], array_2d_dbl_t, space_2d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.force == 1 || datas.all == 1)    	 	h5xx::create_dataset(atoms_group, datasets_names[4], array_2d_dbl_t, space_2d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.mass == 1 || datas.all == 1)     	 	h5xx::create_dataset(atoms_group, datasets_names[5], std::vector<double>, space_1d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.charge == 1 || datas.all == 1)   	 	h5xx::create_dataset(atoms_group, datasets_names[6], std::vector<double>, space_1d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.state == 1 || datas.all == 1)      	h5xx::create_dataset(atoms_group, datasets_names[7], std::vector<int>, space_1d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.drift == 1 || datas.all == 1)      	h5xx::create_dataset(atoms_group, datasets_names[8], std::vector<double>, space_1d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.lambda == 1 || datas.all == 1)     	h5xx::create_dataset(atoms_group, datasets_names[9], std::vector<double>, space_1d, h5xx::policy::storage::chunked(chunk_dims));
+				if (datas.lambdaDeriv == 1 || datas.all == 1)   h5xx::create_dataset(atoms_group, datasets_names[10], std::vector<double>, space_1d, h5xx::policy::storage::chunked(chunk_dims));
+
 
 
 
@@ -182,7 +236,7 @@ namespace espressopp {
     	        }
 
 
-      ~H5MDWriter() {}
+      ~H5MDxxWriter() {}
 
       void perform_action(){
         write();
@@ -196,6 +250,18 @@ namespace espressopp {
       void sort_by_pid();
       void flush_file_stable_storage();
       void close_file();
+      void create_box();
+      void create_time_depend_datasets();
+      void write_time_dependent_datasets();
+
+      void create_time_independent_datasets();
+      void write_time_indipendent_datasets();
+
+
+
+
+
+
       /*
        * write helper routines
        *
@@ -234,10 +300,12 @@ namespace espressopp {
 	  };
 
       void set_init_table(info_table_ini* table_init, boost::python::list initial_list){
+    	  //printf("Are we called ?\n");
        std::set<std::string> ciao = getSetfrompythonlist(initial_list);
 
         if (ciao.find("all") != ciao.end())
         {
+        	//printf("Should NOT be inside ALLLLLLL!!!!!\n");
             table_init->all = 1;
         } else {
 
@@ -254,6 +322,8 @@ namespace espressopp {
             if (ciao.find("force") != ciao.end()) {table_init->force = 1;}
 
         }
+
+        //return std::set<std::string>
 
       };
 
@@ -289,6 +359,7 @@ namespace espressopp {
 
       std::string file_name;
 
+
       std::string author;
       std::string author_email;
       std::string creator;
@@ -304,8 +375,8 @@ namespace espressopp {
       bool append; //append to existing trajectory file or create a new one
       real length_factor;  // for example
       std::string length_unit; // length unit: {could be LJ, nm, A} it is just for user info
-      h5md_file ilfile;
-      h5md_particles_group part_group;
+      h5xx::file hdf5_file;
+      h5xx::group atoms_group;
     };
   }
 }

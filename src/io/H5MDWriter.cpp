@@ -22,10 +22,10 @@
 // http://stackoverflow.com/questions/10056393/g-with-python-h-how-to-compile
 // http://realmike.org/blog/2012/07/08/embedding-python-tutorial-part-1/
 #include "H5MDWriter.hpp"  // keep python.hpp on top
-#include "storage/Storage.hpp"
+//#include "storage/Storage.hpp"
 //#include "System.hpp"
 #include "storage/DomainDecomposition.hpp"
-#include "bc/BC.hpp"
+//#include "bc/BC.hpp"
 
 #include "iterator/CellListIterator.hpp"
 
@@ -56,13 +56,24 @@ namespace espressopp {
 
   void H5MDWriter::open() {}
   void H5MDWriter::sort_by_pid() {}
-  void H5MDWriter::close_file(h5md_file ilfile) {
+  void H5MDWriter::close_file() {
 
-	  // move here closing of all the elements and the file
-	  //H5Gclose(atoms.group);
-	  //h5md_close_file(the_File);
+	if (datas.position == 1 || datas.all == 1) 	  h5md_close_element(part_group.position);
+	if (datas.pid == 1 || datas.all == 1) 		  h5md_close_element(part_group.id);
+	if (datas.type == 1 || datas.all == 1) 		  h5md_close_element(part_group.species);
+	if (datas.velocity == 1 || datas.all == 1) 	  h5md_close_element(part_group.velocity);
+	if (datas.force == 1 || datas.all == 1) 	  h5md_close_element(part_group.force);
+	if (datas.mass == 1 || datas.all == 1) 		  h5md_close_element(part_group.mass);
+	if (datas.charge == 1 || datas.all == 1) 	  h5md_close_element(part_group.charge);
+	if (datas.state == 1 || datas.all == 1) 	  h5md_close_element(part_group.state);
+	if (datas.drift == 1 || datas.all == 1) 	  h5md_close_element(part_group.drift);
+	if (datas.lambda == 1 || datas.all == 1)      h5md_close_element(part_group.lambda);
+	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_close_element(part_group.lambdaDeriv);
+
+    h5md_close_file(ilfile);
 
   }
+
   void H5MDWriter::flush_file_stable_storage() {
 
 	  // move here flush to stable storage to avoid corruptions
@@ -78,88 +89,89 @@ namespace espressopp {
 	   // Separate the close...i.e. do not close the file here! It's a write method, not a close!
 
 	shared_ptr<System> system = getSystem();
-
-	char *ch_f_name = new char[file_name.length() + 1];
-	strcpy(ch_f_name, file_name.c_str());
+//	//long int the_seed = system->rng->seed_;
+//
+//	char *ch_f_name = new char[file_name.length() + 1];
+//	strcpy(ch_f_name, file_name.c_str());
 	int rank = system->comm->rank();
 	int mpi_ranks = system->comm->size();
-	string rankstring = static_cast<ostringstream*>( &(ostringstream() << rank) )->str();
-
-	int ierr;
-	int myN = system->storage->getNRealParticles();  // could avoid this call by putting a counter in the Cells loop below...
+//	string rankstring = static_cast<ostringstream*>( &(ostringstream() << rank) )->str();
+//
+//	int ierr;
+	int myN = system->storage->getNRealParticles();
 	int maxN;   // maximal number of particles one processor has
 	int totalN; // total number of particles all processors have
-
+//
 	boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
 	boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace
-
+//
 	int* array_nparticles = new int [mpi_ranks];   // to write contiguous in file
-
+//
 	boost::mpi::all_gather(*system->comm, myN, array_nparticles);  // needed for contiguous writing
-
-	h5md_file the_File = h5md_create_file (file_name.c_str(), author.c_str(), author_email.c_str(), creator.c_str(), creator_version.c_str(), 1);
-
-	const char *boundary[] = {"periodic", "periodic", "periodic"};
-
+//
+//	h5md_file the_File = h5md_create_file (file_name.c_str(), author.c_str(), author_email.c_str(), creator.c_str(), creator_version.c_str(), 1);
+//
+//	const char *boundary[] = {"periodic", "periodic", "periodic"};
+//
 	Real3D L = system->bc->getBoxL();
-	double box_edges[3];
-	box_edges[0] = L[0];
-	box_edges[1] = L[1];
-	box_edges[2] = L[2];
+//	double box_edges[3];
+//	box_edges[0] = L[0];
+//	box_edges[1] = L[1];
+//	box_edges[2] = L[2];
 	long long step = integrator->getStep();
 	real time_ = step * integrator->getTimeStep();
-	std::string stepstring = static_cast<std::ostringstream*>(&(std::ostringstream() << step))->str();
-	std::string fin = "step_" + stepstring;
-
-	h5md_particles_group atoms = h5md_create_particles_group(the_File, "Atoms");
-
-
-
-	//hid_t atoms = H5Gcreate(atomsi.group, fin.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-	//h5md_particles_group atoms = h5md_create_particles_group()
-	//h5md_create_parameters_group(the_File, "parameters");
-	//system->getSkin();
-	//system->storage->getInt3DCellGrid();
-	//int number_interactions = system->getNumberOfInteractions();
-
-	//real maximum_cutoff = system->maxCutoff;
-
-	h5md_create_box(&atoms, 3, boundary, false, box_edges, NULL);
-
-	//double* coordin = new double [myN];
-
-
-//		if (datas.pid == 1  || datas.all == 1)        size_t pids[myN];
-//		if (datas.position == 1 || datas.all == 1)    double coordina[myN][3];
-//		if (datas.velocity == 1 || datas.all == 1)    double velocities[myN][3];
-//		if (datas.type == 1 || datas.all == 1)        size_t types[myN];
-//		if (datas.force == 1 || datas.all == 1)       double forces[myN][3];
-//		if (datas.charge == 1 || datas.all == 1)      double charges[myN];
-//		if (datas.mass == 1 || datas.all == 1)        double masses[myN];
-//		if (datas.state == 1 || datas.all == 1)       int states[myN];
-//		if (datas.drift == 1 || datas.all == 1)       double drifts[myN];
-//		if (datas.lambda == 1 || datas.all == 1)      double lambdas[myN];
-//		if (datas.lambdaDeriv == 1 || datas.all == 1) double lambdaDerivs[myN];
+//	std::string stepstring = static_cast<std::ostringstream*>(&(std::ostringstream() << step))->str();
+//	std::string fin = "step_" + stepstring;
+//
+//	h5md_particles_group atoms = h5md_create_particles_group(the_File, "Atoms");
+//
+//
+//
+//	//hid_t atoms = H5Gcreate(atomsi.group, fin.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+//	//h5md_particles_group atoms = h5md_create_particles_group()
+//	//h5md_create_parameters_group(the_File, "parameters");
+//	//system->getSkin();
+//	//system->storage->getInt3DCellGrid();
+//	//int number_interactions = system->getNumberOfInteractions();
+//
+//	//real maximum_cutoff = system->maxCutoff;
+//
+//	h5md_create_box(&atoms, 3, boundary, false, box_edges, NULL);
+//
+//	//double* coordin = new double [myN];
+//
+//
+////		if (datas.pid == 1  || datas.all == 1)        size_t pids[myN];
+////		if (datas.position == 1 || datas.all == 1)    double coordina[myN][3];
+////		if (datas.velocity == 1 || datas.all == 1)    double velocities[myN][3];
+////		if (datas.type == 1 || datas.all == 1)        size_t types[myN];
+////		if (datas.force == 1 || datas.all == 1)       double forces[myN][3];
+////		if (datas.charge == 1 || datas.all == 1)      double charges[myN];
+////		if (datas.mass == 1 || datas.all == 1)        double masses[myN];
+////		if (datas.state == 1 || datas.all == 1)       int states[myN];
+////		if (datas.drift == 1 || datas.all == 1)       double drifts[myN];
+////		if (datas.lambda == 1 || datas.all == 1)      double lambdas[myN];
+////		if (datas.lambdaDeriv == 1 || datas.all == 1) double lambdaDerivs[myN];
 
 	int RANK = 2;
-	int dims[RANK];
-	dims[0] = totalN;
-	dims[1] = 3;
-
-
-
-
-	if (datas.position == 1 || datas.all == 1) 	  atoms.position = h5md_create_time_data(atoms.group, "positions", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-	if (datas.pid == 1 || datas.all == 1)      	  atoms.id = h5md_create_time_data(atoms.group, "pids", 1, &totalN, H5T_NATIVE_INT, NULL);
-	if (datas.type == 1 || datas.all == 1)     	  atoms.species = h5md_create_time_data(atoms.group, "types", 1, &totalN, H5T_NATIVE_INT, NULL);
-	if (datas.velocity == 1 || datas.all == 1) 	  atoms.velocity = h5md_create_time_data(atoms.group, "velocities", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-	if (datas.force == 1 || datas.all == 1)    	  atoms.force = h5md_create_time_data(atoms.group, "forces", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-	if (datas.mass == 1 || datas.all == 1)     	  atoms.mass = h5md_create_time_data(atoms.group, "masses", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-	if (datas.charge == 1 || datas.all == 1)   	  atoms.charge = h5md_create_time_data(atoms.group, "charges", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-	if (datas.state == 1 || datas.all == 1)       atoms.state = h5md_create_time_data(atoms.group, "states", 1, &totalN, H5T_NATIVE_INT, NULL);
-	if (datas.drift == 1 || datas.all == 1)       atoms.drift = h5md_create_time_data(atoms.group, "drifts", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-	if (datas.lambda == 1 || datas.all == 1)      atoms.lambda = h5md_create_time_data(atoms.group, "lambdas", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-	if (datas.lambdaDeriv == 1 || datas.all == 1) atoms.lambdaDeriv = h5md_create_time_data(atoms.group, "lambdaDerivs", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+//	int dims[RANK];
+//	dims[0] = totalN;
+//	dims[1] = 3;
+//
+//
+//
+//
+//	if (datas.position == 1 || datas.all == 1) 	  atoms.position = h5md_create_time_data(atoms.group, "positions", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+//	if (datas.pid == 1 || datas.all == 1)      	  atoms.id = h5md_create_time_data(atoms.group, "pids", 1, &totalN, H5T_NATIVE_INT, NULL);
+//	if (datas.type == 1 || datas.all == 1)     	  atoms.species = h5md_create_time_data(atoms.group, "types", 1, &totalN, H5T_NATIVE_INT, NULL);
+//	if (datas.velocity == 1 || datas.all == 1) 	  atoms.velocity = h5md_create_time_data(atoms.group, "velocities", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+//	if (datas.force == 1 || datas.all == 1)    	  atoms.force = h5md_create_time_data(atoms.group, "forces", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+//	if (datas.mass == 1 || datas.all == 1)     	  atoms.mass = h5md_create_time_data(atoms.group, "masses", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+//	if (datas.charge == 1 || datas.all == 1)   	  atoms.charge = h5md_create_time_data(atoms.group, "charges", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+//	if (datas.state == 1 || datas.all == 1)       atoms.state = h5md_create_time_data(atoms.group, "states", 1, &totalN, H5T_NATIVE_INT, NULL);
+//	if (datas.drift == 1 || datas.all == 1)       atoms.drift = h5md_create_time_data(atoms.group, "drifts", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+//	if (datas.lambda == 1 || datas.all == 1)      atoms.lambda = h5md_create_time_data(atoms.group, "lambdas", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+//	if (datas.lambdaDeriv == 1 || datas.all == 1) atoms.lambdaDeriv = h5md_create_time_data(atoms.group, "lambdaDerivs", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
 
 	size_t pids[myN];
 	double coordina[myN][3];
@@ -327,55 +339,60 @@ namespace espressopp {
 	  	hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
 	  	H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 
-        // logic to write a file contiguosly!
+        // logic to write a file contiguously!
 		int sumup = 0;
-		count[0] = myN;
-		count[1] = dimsf[1];
+		//count[0] = myN;
+		//count[1] = dimsf[1];
 		if (rank == 0) {
-			offset[0] = rank;
+			offset[1] = 0;
 		} else {
 
 			for(int L=0; L<rank; L++) {
 				sumup += array_nparticles[L];
 			}
 
-			offset[0] = sumup;
+			offset[1] = sumup;
 		}
 
-		offset[1] = 0;
+		offset[0] = 0;
+		//std::cout << "offset[0]: " << offset[0] << std::endl;
 
-	if (datas.position == 1  || datas.all == 1)   h5md_append(atoms.position, coordina, step, time_, plist_id, offset[0], myN);
-	if (datas.pid == 1  || datas.all == 1)        h5md_append(atoms.id, pids, step, time_, plist_id, offset[0], myN);
-	if (datas.type == 1 || datas.all == 1)     	  h5md_append(atoms.species, types, step, time_, plist_id, offset[0], myN);
-	if (datas.velocity == 1 || datas.all == 1) 	  h5md_append(atoms.velocity, velocities, step, time_, plist_id, offset[0], myN);
-	if (datas.mass == 1 || datas.all == 1)     	  h5md_append(atoms.mass, masses, step, time_, plist_id, offset[0], myN);
-	if (datas.charge == 1 || datas.all == 1)   	  h5md_append(atoms.charge, charges, step, time_, plist_id, offset[0], myN);
-	if (datas.state == 1 || datas.all == 1)    	  h5md_append(atoms.state, states, step, time_, plist_id, offset[0], myN);
-	if (datas.drift == 1 || datas.all == 1)       h5md_append(atoms.drift, drifts, step, time_, plist_id, offset[0], myN);
-	if (datas.force == 1 || datas.all == 1)       h5md_append(atoms.force, forces, step, time_, plist_id, offset[0], myN);
-	if (datas.lambda == 1 || datas.all == 1)      h5md_append(atoms.lambda, lambdas, step, time_, plist_id, offset[0], myN);
-	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_append(atoms.lambdaDeriv, lambdaDerivs, step, time_, plist_id, offset[0], myN);
+		//int offsets;
+		//MPI_Scan(&myN, &offsets, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+
+
+	if (datas.position == 1  || datas.all == 1)   h5md_append(part_group.position, coordina, step, time_, plist_id, offset[1], myN);
+	if (datas.pid == 1  || datas.all == 1)        h5md_append(part_group.id, pids, step, time_, plist_id, offset[1], myN);
+	if (datas.type == 1 || datas.all == 1)     	  h5md_append(part_group.species, types, step, time_, plist_id, offset[1], myN);
+	if (datas.velocity == 1 || datas.all == 1) 	  h5md_append(part_group.velocity, velocities, step, time_, plist_id, offset[1], myN);
+	if (datas.mass == 1 || datas.all == 1)     	  h5md_append(part_group.mass, masses, step, time_, plist_id, offset[1], myN);
+	if (datas.charge == 1 || datas.all == 1)   	  h5md_append(part_group.charge, charges, step, time_, plist_id, offset[1], myN);
+	if (datas.state == 1 || datas.all == 1)    	  h5md_append(part_group.state, states, step, time_, plist_id, offset[1], myN);
+	if (datas.drift == 1 || datas.all == 1)       h5md_append(part_group.drift, drifts, step, time_, plist_id, offset[1], myN);
+	if (datas.force == 1 || datas.all == 1)       h5md_append(part_group.force, forces, step, time_, plist_id, offset[1], myN);
+	if (datas.lambda == 1 || datas.all == 1)      h5md_append(part_group.lambda, lambdas, step, time_, plist_id, offset[1], myN);
+	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_append(part_group.lambdaDeriv, lambdaDerivs, step, time_, plist_id, offset[1], myN);
 
   	H5Pclose(plist_id);
 
-	if (datas.position == 1 || datas.all == 1) 	  h5md_close_element(atoms.position);
-	if (datas.pid == 1 || datas.all == 1) 		  h5md_close_element(atoms.id);
-	if (datas.type == 1 || datas.all == 1) 		  h5md_close_element(atoms.species);
-	if (datas.velocity == 1 || datas.all == 1) 	  h5md_close_element(atoms.velocity);
-	if (datas.force == 1 || datas.all == 1) 	  h5md_close_element(atoms.force);
-	if (datas.mass == 1 || datas.all == 1) 		  h5md_close_element(atoms.mass);
-	if (datas.charge == 1 || datas.all == 1) 	  h5md_close_element(atoms.charge);
-	if (datas.state == 1 || datas.all == 1) 	  h5md_close_element(atoms.state);
-	if (datas.drift == 1 || datas.all == 1) 	  h5md_close_element(atoms.drift);
-	if (datas.lambda == 1 || datas.all == 1)      h5md_close_element(atoms.lambda);
-	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_close_element(atoms.lambdaDeriv);
+//	if (datas.position == 1 || datas.all == 1) 	  h5md_close_element(part_group.position);
+//	if (datas.pid == 1 || datas.all == 1) 		  h5md_close_element(part_group.id);
+//	if (datas.type == 1 || datas.all == 1) 		  h5md_close_element(part_group.species);
+//	if (datas.velocity == 1 || datas.all == 1) 	  h5md_close_element(part_group.velocity);
+//	if (datas.force == 1 || datas.all == 1) 	  h5md_close_element(part_group.force);
+//	if (datas.mass == 1 || datas.all == 1) 		  h5md_close_element(part_group.mass);
+//	if (datas.charge == 1 || datas.all == 1) 	  h5md_close_element(part_group.charge);
+//	if (datas.state == 1 || datas.all == 1) 	  h5md_close_element(part_group.state);
+//	if (datas.drift == 1 || datas.all == 1) 	  h5md_close_element(part_group.drift);
+//	if (datas.lambda == 1 || datas.all == 1)      h5md_close_element(part_group.lambda);
+//	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_close_element(part_group.lambdaDeriv);
 
-	if (!append) {
-		H5Gclose(atoms.group);
-		h5md_close_file(the_File);
-	}
+//	if (!append) {
+//		H5Gclose(atoms.group);
+//		h5md_close_file(the_File);
+//	}
 
-	delete [] ch_f_name;
+	//delete [] ch_f_name;
 	delete [] array_nparticles;
 
 
@@ -852,7 +869,8 @@ namespace espressopp {
                                      &H5MDWriter::setLengthUnit)
         .add_property("append", &H5MDWriter::getAppend,
                                   &H5MDWriter::setAppend)
-        .def("write", &H5MDWriter::write)
+        .def("dump", &H5MDWriter::write)
+		.def("close", &H5MDWriter::close_file)
       ;
     }
   }

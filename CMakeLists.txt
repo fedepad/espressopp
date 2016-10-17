@@ -172,6 +172,7 @@ if(ENABLE_HDF5)
     #set(_hdf5_libs hdf5 )
     add_definitions( -DHDF5_LAYER  )
     add_definitions( -DPARALLEL_V )
+    add_definitions( -DH5XX_USE_MPI )
   else()  ## probably won't work this part, haven't tested!
   # we did not find it so we fetch it from the web, configure, compile, and link
     #include(ExternalProject)

@@ -10,8 +10,11 @@ file(GLOB_RECURSE NOT_ESPRESSO_SOURCES
   bc/unittest/*.cpp
   integrator/unittest/*.cpp
   io/h5mdxx.cpp
-  io/h5xx/*.cpp
+  #io/h5xx/*.cpp
   io/H5MDReader.cpp
+  io/H5MDWriter.cpp
+  #io/H5MDxxWriter.cpp
+  io/ch5md.c
 )
 list(REMOVE_ITEM ESPRESSO_SOURCES ${NOT_ESPRESSO_SOURCES})
 
@@ -45,6 +48,7 @@ if (WITH_RC_FILES)
 endif (WITH_RC_FILES)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/io)
 
 add_library(_espressopp ${ESPRESSO_SOURCES})
 target_link_libraries(_espressopp ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${MPI_LIBRARIES} ${FFTW3_LIBRARIES} ${HDF5_LIBRARIES} ${VAMPIRTRACE_LIBRARIES})

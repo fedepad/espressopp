@@ -24,7 +24,8 @@
 #define MAX_RANK 5
 
 
-h5md_file h5md_create_file (const std::string& filename, const std::string& author, const std::string& author_email, const std::string& creator, const std::string& creator_version)
+
+h5xx::file h5md_create_file (const std::string& filename, const std::string& author, const std::string& author_email, const std::string& creator, const std::string& creator_version, const std::string& particle_group_name)
 {
 
   h5md_file file;
@@ -39,15 +40,12 @@ h5md_file h5md_create_file (const std::string& filename, const std::string& auth
    //h5xx::file fileh = file(filename, MPI_COMM_WORLD, info, h5xx::file::out); // this should append ....?
   h5xx::file hdf5_file = file(filename, MPI_COMM_WORLD, info, h5xx::file::trunc); // default
   file.id = hdf5_file.hid_;
-
   h5xx::group h5md_group = group(hdf5_file, "h5md");
-
   h5xx::write_attribute(h5md_group, "version", file.version);
-
   h5xx::group author_group = group(h5md_group, "author");
   h5xx::write_attribute(author_group, "name", author);
 
-  if (NULL!=author_email) {
+  if (!author_email.empty()) {
 	  h5xx::write_attribute(author_group, "author_email", author_email);
   }
 
@@ -55,30 +53,43 @@ h5md_file h5md_create_file (const std::string& filename, const std::string& auth
   h5xx::write_attribute(creator_group, "name", creator);
   h5xx::write_attribute(creator_group, "version", creator_version);
 
-  h5xx::group particles_group = group(h5md_group, "Particles");
-  h5xx::group observables_group = group(h5md_group, "Observables");
-  h5xx::group parameters_group = group(h5md_group, "Parameters");
+  h5xx::group particles_group = group(h5md_group, "particles");
+  h5xx::group observables_group = group(h5md_group, "observables");
+  h5xx::group parameters_group = group(h5md_group, "parameters");
+  // can create particles group here (Atoms)
+  h5xx::group atoms_group = group(particles_group, particle_group_name);
 
   file.particles = particles_group.hid_;
   file.observables = observables_group.hid_;
   file.parameters = parameters_group.hid_;
 
-
-  return file;
+  return hdf5_file;
 }
 
-int h5md_close_file(h5md_file file) {
+int h5md_close_file(h5xx::file ilfile, const std::string& partgroupname) {
 	//int h5md_close_file(h5xx::file filetemp) {
-  H5Gclose(file.particles);
-  H5Gclose(file.observables);
-  H5Gclose(file.parameters);
+//  H5Gclose(file.particles);
+//  H5Gclose(file.observables);
+//  H5Gclose(file.parameters);
 //  boost::array<std::string, 3> = {{"Particles", "Observables", "Parameters"}}
 //  if ((hid_t gr = h5xx::open_group(filetemp.hid_, "/h5md/Particles")) > 0) {
 //	  H5Gclose(gr);
 //  }
 
 //		filetemp.close();
-  H5Fclose(file.id);
+  //H5Fclose(file.id);
+	boost::array<std::string, 3> = {{"/h5md/particles", "/h5md/observables", "/h5md/parameters"}}
+
+	h5xx::group particl, observ, params, partgroup;
+	particl.open(ilfile, )
+
+
+	particl.close();
+	observ.close();
+	params.close();
+	partgroup.open(ilfile, partgroupname);
+	partgroup.close();
+	ilfile.close();
 
   return 0;
 }
@@ -379,7 +390,7 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
     count[i] = dims[i];
   }
 
-  // reuse logic in #
+  // reuse logic in my PR on HDF5File to write in parallel contiguously
 
   start[1] = offset;
   count[1] = data_size;
@@ -458,12 +469,7 @@ int h5md_write_string_attribute(hid_t loc, const char *obj_name,
   hid_t s, t, a;
   herr_t status;
 
-#ifdef _PARALLEL_V
-  obj = H5Oopen(loc, obj_name, H5P_DEFAULT);  // change the acces propertu list for parallel IO mode?
-#else
   obj = H5Oopen(loc, obj_name, H5P_DEFAULT);
-#endif
-
   t = H5Tcopy(H5T_C_S1);
   status = H5Tset_size(t, strlen(value));
   s = H5Screate(H5S_SCALAR);
