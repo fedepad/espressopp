@@ -19,7 +19,7 @@
 
 r"""
 *********************************************
-**H5MDWriter** - IO Object
+**H5MDReader** - IO Object
 *********************************************
 
 * `write()`
@@ -31,58 +31,18 @@ r"""
 * `filename`
   Name of trajectory file. By default trajectory file name is "out.h5"
 
-* `author`
-  Name of the user that is running the program.
-
-* `author_email`
-  Email of the person that is running the program.
-
-* `creator`
-  Program that created the file. Default: EspResso++
-
-* `creator_version`
-  Version of the program that created the file.
-
-* `iomode`
-  Iomode: 0 serial, 1 Nto1, 2 NtoN. Right now N-to-1 is activated by default.
-
-* `data_to_store`
-  List containing the particle properties that one wants to save: ['all'] saves the
-  all particle data struct, i.e. (pid, position, velocity, type, force, charge, mass,
-  state, drift, lambda, lambdaDeriv) or ['pid', 'mass', 'charge'] means only the pid,
-  mass and charge of each particle need to be saved. Default - ['all']
-  Example:
-      data_to_store = ['all']  --> saves the all particle struct
-      data_to_store = ['pid', 'position', 'type'] --> save pid, position and type
-      for each particle
-  Possible fields per particle to be saved:
-  pid, type, position, velocity, force, charge, mass, state, drift, lambda, lambdaDeriv.
-
-* `unfolded`
-  False if coordinates are folded, True if unfolded. By default - False
-
-* `append`
-  True if new trajectory data is appended to existing trajectory file. By default - True
-
-* `length_factor`
-  If length dimension in current system is nm, and unit is 0.23 nm, for example, then
-  length_factor should be 0.23
-
-* `length_unit`
-  It is length unit. Can be LJ, nm or A. By default - LJ
-
 usage:
 
 writing down trajectory
 
->>> dump_conf_h5md = espressopp.io.H5MDWriter(system, integrator, filename='trajectory.h5', iomode=1)
+>>> read_conf_h5md = espressopp.io.H5MDReader(filename='trajectory.h5')
 >>> for i in range (200):
 >>>   integrator.run(10)
 >>>   dump_conf_h5md.write()
 
-writing down trajectory using ExtAnalyze extension
+reading trajectory
 
->>> dump_conf_h5md = espressopp.io.H5MDWriter(system, integrator, filename='trajectory.h5', iomode=1, data_to_store=['all'])
+>>> dump_conf_h5md = espressopp.io.H5MDReader(filename='trajectory.h5')
 >>> ext_analyze = espressopp.integrator.ExtAnalyze(dump_conf_h5md, 10)
 >>> integrator.addExtension(ext_analyze)
 >>> integrator.run(2000)
@@ -93,41 +53,17 @@ setting up length scale
 
 For example, the Lennard-Jones model for liquid argon with :math:`\sigma=0.34 [nm]`
 
->>> dump_conf_h5md = espressopp.io.H5MDWriter(system, integrator, filename='trj.h5', iomode=1, data_to_store=['pid', 'mass', 'velocity'], unfolded=False, length_factor=0.34, length_unit='nm', append=True)
+>>> dump_conf_h5md = espressopp.io.H5MDReader(system, integrator, filename='trj.h5', iomode=1, data_to_store=['pid', 'mass', 'velocity'], unfolded=False, length_factor=0.34, length_unit='nm', append=True)
 
 will produce trj.h5 with  in nanometers // Federico P. comment: what in nanometers? It's clear coordinate but please don't leave sentence hanging!
 
-.. function:: espressopp.io.H5MDWriter(system, integrator, filename, iomode, data_to_store, unfolded, length_factor, length_unit, append)
+.. function:: espressopp.io.H5MDReader(filename)
 
-        :param system:
-        :param integrator:
         :param filename: (default: 'out.h5')
-        :param author: (default: 'out.h5')
-        :param author_email: (default: 'NULL')
-        :param creator: (default: 'EsPResso++')
-        :param creator_version: (default: xxxx)
 
-        :param iomode: (default: 1)
-        :param data_to_store: (default: ['all'])
-        :param unfolded: (default: False)
-        :param length_factor: (default: 1.0)
-        :param length_unit: (default: 'LJ')
-        :param append: (default: True)
-        :type system:
-        :type integrator:
         :type filename: string
-        :type author: string
-        :type author_email: string
-        :type creator: string
-        :type creator_version: string
-        :type iomode: int
-        :type data_to_store: list of strings
-        :type unfolded: bool
-        :type length_factor: real
-        :type length_unit: real
-        :type append: bool
 
-.. function:: espressopp.io.H5MDWriter.write()
+.. function:: espressopp.io.H5MDReader.read()
 
         :rtype:
 """
@@ -137,33 +73,24 @@ from espressopp.esutil import cxxinit
 from espressopp import pmi
 import espressopp
 
-from espressopp.ParticleAccess import *
-from _espressopp import io_H5MDWriter
+#from espressopp.ParticleAccess import *
+from _espressopp import io_H5MDReader
 
-class H5MDWriterLocal(ParticleAccessLocal, io_H5MDWriter):
+class H5MDReaderLocal(io_H5MDReader):
 
-  def __init__(self, system, integrator, filename='out.h5', author=os.environ['USER'],
-               author_email="username@domain.state", creator = espressopp.VersionLocal().name,
-               #creator_version = ".".join([str(espressopp.VersionLocal().major),
-               #                           str(espressopp.VersionLocal().minor),
-               #                           str(espressopp.VersionLocal().patchlevel)]),
-               creator_version = espressopp.VersionLocal().info(),
-                iomode=1, data_to_store=['all'], unfolded=False, length_factor=1.0,
-               length_unit='LJ', append=True):
-    cxxinit(self, io_H5MDWriter, system, integrator, filename, author,
-            author_email, creator, creator_version, iomode, data_to_store,
-            unfolded, length_factor, length_unit, append)
+  def __init__(self, filename):
+    cxxinit(self, io_H5MDReader, filename)
 
-  def write(self):
+  def read(self):
     if pmi.workerIsActive():
-      self.cxxclass.write(self)
+      self.cxxclass.read(self)
 
 
 if pmi.isController :
-  class H5MDWriter(ParticleAccess):
+  class H5MDReader(ParticleAccess):
     __metaclass__ = pmi.Proxy
     pmiproxydefs = dict(
-      cls =  'espressopp.io.H5MDWriterLocal',
-      pmicall = [ 'write' ],
-      pmiproperty = ['filename', 'author', 'author_email', 'creator', 'creator_version', 'iomode', 'data_to_store', 'unfolded', 'length_factor', 'length_unit', 'append']
+      cls =  'espressopp.io.H5MDReaderLocal',
+      pmicall = [ 'read' ],
+      pmiproperty = ['filename']
     )

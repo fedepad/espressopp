@@ -153,10 +153,10 @@ class H5MDWriterLocal(ParticleAccessLocal, io_H5MDWriter):
                #                           str(espressopp.VersionLocal().patchlevel)]),
                creator_version = espressopp.VersionLocal().info(),
                 iomode=1, data_to_store=['all'], unfolded=False, length_factor=1.0,
-               length_unit='LJ', append=True):
+               length_unit='LJ', sort_pids=False, append=True):
     cxxinit(self, io_H5MDWriter, system, integrator, filename, author,
             author_email, creator, creator_version, iomode, data_to_store,
-            unfolded, length_factor, length_unit, append)
+            unfolded, length_factor, length_unit, sort_pids, append)
 
   def write(self):
     if pmi.workerIsActive():
@@ -169,5 +169,5 @@ if pmi.isController :
     pmiproxydefs = dict(
       cls =  'espressopp.io.H5MDWriterLocal',
       pmicall = [ 'dump', 'close' ],
-      pmiproperty = ['filename', 'author', 'author_email', 'creator', 'creator_version', 'iomode', 'data_to_store', 'unfolded', 'length_factor', 'length_unit', 'append']
+      pmiproperty = ['filename', 'author', 'author_email', 'creator', 'creator_version', 'iomode', 'data_to_store', 'unfolded', 'length_factor', 'length_unit', 'sort_pids', 'append']
     )

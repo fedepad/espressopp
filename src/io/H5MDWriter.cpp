@@ -56,7 +56,10 @@ namespace espressopp {
 
   void H5MDWriter::open() {}
   void H5MDWriter::sort_by_pid() {}
-  void H5MDWriter::close_file() {
+  void H5MDWriter::close() {
+	 // check if we need to sort the pids...
+	  if (sort_pids) sort_by_pid();
+
 
 	if (datas.position == 1 || datas.all == 1) 	  h5md_close_element(part_group.position);
 	if (datas.pid == 1 || datas.all == 1) 		  h5md_close_element(part_group.id);
@@ -69,8 +72,10 @@ namespace espressopp {
 	if (datas.drift == 1 || datas.all == 1) 	  h5md_close_element(part_group.drift);
 	if (datas.lambda == 1 || datas.all == 1)      h5md_close_element(part_group.lambda);
 	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_close_element(part_group.lambdaDeriv);
-
-    h5md_close_file(ilfile);
+	h5md_close_element(part_group.box_edges);
+	H5Gclose(part_group.group);
+    //h5md_close_element(part_group.);
+	h5md_close_file(ilfile);
 
   }
 
@@ -173,17 +178,33 @@ namespace espressopp {
 //	if (datas.lambda == 1 || datas.all == 1)      atoms.lambda = h5md_create_time_data(atoms.group, "lambdas", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
 //	if (datas.lambdaDeriv == 1 || datas.all == 1) atoms.lambdaDeriv = h5md_create_time_data(atoms.group, "lambdaDerivs", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
 
-	size_t pids[myN];
-	double coordina[myN][3];
-	double velocities[myN][3];
-	double forces[myN][3];
-	double charges[myN];
-	double masses[myN];
-	int states[myN];
-	double drifts[myN];
-	double lambdas[myN];
-	double lambdaDerivs[myN];
-	size_t types[myN];
+//	size_t pids[myN];
+//	double coordina[myN][3];
+//	double velocities[myN][3];
+//	double forces[myN][3];
+//	double charges[myN];
+//	double masses[myN];
+//	int states[myN];
+//	double drifts[myN];
+//	double lambdas[myN];
+//	double lambdaDerivs[myN];
+//	size_t types[myN];
+
+
+	size_t* pids = new size_t [myN];
+	size_t* types = new size_t [myN];
+	double* coordina = new double [myN*3];
+	double* velocities = new double [myN*3];
+	double* forces = new double [myN*3];
+	double* charges = new double [myN];
+	double* masses = new double [myN];
+	double* drifts = new double [myN];
+	double* lambdas = new double [myN];
+	double* lambdaDerivs = new double [myN];
+	int* states = new int [myN];
+
+
+
 
 	CellList realCells = system->storage->getRealCells();
 
@@ -200,16 +221,22 @@ namespace espressopp {
 		  if (datas.position == 1 || datas.all == 1) {
 		  Real3D& pos = cit->position();
 		  Int3D& img = cit->image();
-		  coordina[i][0] = pos[0] + img[0] * L[0];
-		  coordina[i][1] = pos[1] + img[1] * L[1];
-		  coordina[i][2] = pos[2] + img[2] * L[2];
+//		  coordina[i][0] = pos[0] + img[0] * L[0];
+//		  coordina[i][1] = pos[1] + img[1] * L[1];
+//		  coordina[i][2] = pos[2] + img[2] * L[2];
+		  coordina[i*3] = pos[0] + img[0] * L[0];
+		  coordina[i*3+1] = pos[1] + img[1] * L[1];
+		  coordina[i*3+2] = pos[2] + img[2] * L[2];
 		  }
 		  if (datas.velocity == 1 || datas.all == 1) {
 			  Real3D& vel = cit->velocity();
-			  velocities[i][0] = vel[0];
-			  velocities[i][1] = vel[1];
-			  velocities[i][2] = vel[2];
+//			  velocities[i][0] = vel[0];
+//			  velocities[i][1] = vel[1];
+//			  velocities[i][2] = vel[2];
 
+			  velocities[i*3] = vel[0];
+			  velocities[i*3+1] = vel[1];
+			  velocities[i*3+2] = vel[2];
 		  }
 
 		  if (datas.type == 1 || datas.all == 1) {
@@ -218,9 +245,12 @@ namespace espressopp {
 		  }
 		  if (datas.force == 1 || datas.all == 1) {
 			  Real3D& force = cit->force();
-			  forces[i][0] = force[0];
-			  forces[i][1] = force[1];
-			  forces[i][2] = force[2];
+//			  forces[i][0] = force[0];
+//			  forces[i][1] = force[1];
+//			  forces[i][2] = force[2];
+			  forces[i*3] = force[0];
+			  forces[i*3+1] = force[1];
+			  forces[i*3+2] = force[2];
 		  }
 		  if (datas.mass == 1 || datas.all == 1) {
 
@@ -263,15 +293,21 @@ namespace espressopp {
 		  }
 		  if (datas.position == 1 || datas.all == 1) {
 		  Real3D& pos = cit->position();
-		  coordina[i][0] = pos[0];
-		  coordina[i][1] = pos[1];
-		  coordina[i][2] = pos[2];
+//		  coordina[i][0] = pos[0];
+//		  coordina[i][1] = pos[1];
+//		  coordina[i][2] = pos[2];
+		  coordina[i*3] = pos[0];
+		  coordina[i*3+1] = pos[1];
+		  coordina[i*3+2] = pos[2];
 		  }
 		  if (datas.velocity == 1 || datas.all == 1) {
 			  Real3D& vel = cit->velocity();
-			  velocities[i][0] = vel[0];
-			  velocities[i][1] = vel[1];
-			  velocities[i][2] = vel[2];
+//			  velocities[i][0] = vel[0];
+//			  velocities[i][1] = vel[1];
+//			  velocities[i][2] = vel[2];
+				velocities[i*3] = vel[0];
+				velocities[i*3+1] = vel[1];
+				velocities[i*3+2] = vel[2];
 
 		  }
 
@@ -281,9 +317,12 @@ namespace espressopp {
 		  }
 		  if (datas.force == 1 || datas.all == 1) {
 			  Real3D& force = cit->force();
-			  forces[i][0] = force[0];
-			  forces[i][1] = force[1];
-			  forces[i][2] = force[2];
+//			  forces[i][0] = force[0];
+//			  forces[i][1] = force[1];
+//			  forces[i][2] = force[2];
+			  forces[i*3] = force[0];
+			  forces[i*3+1] = force[1];
+			  forces[i*3+2] = force[2];
 		  }
 		  if (datas.mass == 1 || datas.all == 1) {
 
@@ -355,11 +394,6 @@ namespace espressopp {
 		}
 
 		offset[0] = 0;
-		//std::cout << "offset[0]: " << offset[0] << std::endl;
-
-		//int offsets;
-		//MPI_Scan(&myN, &offsets, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-
 
 	if (datas.position == 1  || datas.all == 1)   h5md_append(part_group.position, coordina, step, time_, plist_id, offset[1], myN);
 	if (datas.pid == 1  || datas.all == 1)        h5md_append(part_group.id, pids, step, time_, plist_id, offset[1], myN);
@@ -392,8 +426,18 @@ namespace espressopp {
 //		h5md_close_file(the_File);
 //	}
 
-	//delete [] ch_f_name;
 	delete [] array_nparticles;
+	delete [] pids;
+	delete [] types;
+	delete [] coordina;
+	delete [] velocities;
+	delete [] forces;
+	delete [] charges;
+	delete [] masses;
+	delete [] states;
+	delete [] lambdas;
+	delete [] lambdaDerivs;
+	delete [] drifts;
 
 
 
@@ -845,6 +889,7 @@ namespace espressopp {
                            bool,
                            real,
                            std::string ,
+						   bool,
                            bool>())
         .add_property("filename", &H5MDWriter::getFilename,
                                   &H5MDWriter::setFilename)
@@ -867,10 +912,12 @@ namespace espressopp {
                                        &H5MDWriter::setLengthFactor)
         .add_property("length_unit", &H5MDWriter::getLengthUnit,
                                      &H5MDWriter::setLengthUnit)
+		 .add_property("sort_pids", &H5MDWriter::getSortPids,
+									  &H5MDWriter::setSortPids)
         .add_property("append", &H5MDWriter::getAppend,
                                   &H5MDWriter::setAppend)
         .def("dump", &H5MDWriter::write)
-		.def("close", &H5MDWriter::close_file)
+		.def("close", &H5MDWriter::close)
       ;
     }
   }

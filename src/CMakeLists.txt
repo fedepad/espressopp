@@ -10,11 +10,11 @@ file(GLOB_RECURSE NOT_ESPRESSO_SOURCES
   bc/unittest/*.cpp
   integrator/unittest/*.cpp
   io/h5mdxx.cpp
-  #io/h5xx/*.cpp
+  io/h5xx/*.cpp
   io/H5MDReader.cpp
-  io/H5MDWriter.cpp
-  #io/H5MDxxWriter.cpp
-  io/ch5md.c
+  #io/H5MDWriter.cpp
+  io/H5MDxxWriter.cpp
+  #io/ch5md.c
 )
 list(REMOVE_ITEM ESPRESSO_SOURCES ${NOT_ESPRESSO_SOURCES})
 

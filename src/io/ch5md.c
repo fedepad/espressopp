@@ -315,6 +315,8 @@ h5md_element h5md_create_time_data(hid_t loc, const char *name, int rank, int in
     status = H5Lcreate_hard(link->group, "time", td.group, "time", H5P_DEFAULT, H5P_DEFAULT);
   }
 
+//  chunks[0] = 128;
+//  chunks[1] = 128;
   spc = H5Screate_simple( rank+1 , dims, max_dims) ;
   plist = H5Pcreate(H5P_DATASET_CREATE);
   status = H5Pset_chunk(plist, rank+1, chunks);
@@ -322,9 +324,9 @@ h5md_element h5md_create_time_data(hid_t loc, const char *name, int rank, int in
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rankk);
   printf("chunks[0]: %d, chunks[1]: %d; from MPI rank: %d\n", chunks[0], chunks[1], mpi_rankk);
   const int fill_value_pids = -1;
-  //if (strcmp(name, "pids") == 0) {
+//  if (strcmp(name, "pids") == 0) {
 //	  H5Pset_fill_value(plist, H5T_NATIVE_INT, &fill_value_pids);
-  //}
+//  }
   td.value = H5Dcreate(td.group, "value", datatype, spc, H5P_DEFAULT, plist, H5P_DEFAULT);
   H5Pclose(plist);
   status = H5Sclose(spc);
@@ -499,6 +501,9 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
 
   start[1] = offset;
   count[1] = data_size;
+
+  //start[0] = offset;
+
   int mpi_rankk;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rankk);
   printf("start[0]: %d, start[1]: %d, count[0]: %d, count[1]: %d; from MPI rank: %d\n", start[0], start[1], count[0], count[1], mpi_rankk);
@@ -596,3 +601,57 @@ int h5md_write_string_attribute(hid_t loc, const char *obj_name,
 
   return 0;
 }
+
+//int h5md_write_double_attribute(hid_t loc, const char *obj_name,
+//    const char *att_name, const char *value)
+//{
+//  hid_t obj;
+//  hid_t s, t, a;
+//  herr_t status;
+//
+//#ifdef _PARALLEL_V
+//  obj = H5Oopen(loc, obj_name, H5P_DEFAULT);  // change the acces propertu list for parallel IO mode?
+//#else
+//  obj = H5Oopen(loc, obj_name, H5P_DEFAULT);
+//#endif
+//
+//  t = H5Tcopy(H5T_C_S1);
+//  status = H5Tset_size(t, strlen(value));
+//  s = H5Screate(H5S_SCALAR);
+//  a = H5Acreate(obj, att_name, t, s, H5P_DEFAULT, H5P_DEFAULT);
+//  status = H5Awrite(a, t, value);
+//  status = H5Aclose(a);
+//  status = H5Sclose(s);
+//  status = H5Tclose(t);
+//
+//  status = H5Oclose(obj);
+//
+//  return 0;
+//}
+//
+//int h5md_write_string_long(hid_t loc, const char *obj_name,
+//    const char *att_name, const char *value)
+//{
+//  hid_t obj;
+//  hid_t s, t, a;
+//  herr_t status;
+//
+//#ifdef _PARALLEL_V
+//  obj = H5Oopen(loc, obj_name, H5P_DEFAULT);  // change the acces propertu list for parallel IO mode?
+//#else
+//  obj = H5Oopen(loc, obj_name, H5P_DEFAULT);
+//#endif
+//
+//  t = H5Tcopy(H5T_C_S1);
+//  status = H5Tset_size(t, strlen(value));
+//  s = H5Screate(H5S_SCALAR);
+//  a = H5Acreate(obj, att_name, t, s, H5P_DEFAULT, H5P_DEFAULT);
+//  status = H5Awrite(a, t, value);
+//  status = H5Aclose(a);
+//  status = H5Sclose(s);
+//  status = H5Tclose(t);
+//
+//  status = H5Oclose(obj);
+//
+//  return 0;
+//}

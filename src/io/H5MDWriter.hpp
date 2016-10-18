@@ -40,6 +40,8 @@
 #include <boost/python/module.hpp>
 #include <boost/python/args.hpp>
 #include "ch5md.h"
+//#include "hdf5_hl.h"
+#include "esutil/RNG.hpp"
 
 
 namespace espressopp {
@@ -79,6 +81,7 @@ namespace espressopp {
     	                bool _unfolded,
     	                real _length_factor,
     	                std::string _length_unit,
+						bool _sort_pids,
     	                bool _append):
     	                          ParticleAccess(system),
     	                          integrator(_integrator),
@@ -92,6 +95,7 @@ namespace espressopp {
     	                          unfolded(_unfolded),
     	                          length_factor(_length_factor),
     							  length_unit(_length_unit),
+								  sort_pids(_sort_pids),
     	                          append(_append) {
 
     		  	  //setLengthUnit(_length_unit);
@@ -138,7 +142,7 @@ namespace espressopp {
 
     	          	boost::mpi::all_gather(*system->comm, myN, array_nparticles);  // needed for contiguous writing
 
-    	          	h5md_file the_File = h5md_create_file (file_name.c_str(), author.c_str(), author_email.c_str(), creator.c_str(), creator_version.c_str(), 1);
+    	          	ilfile = h5md_create_file (file_name.c_str(), author.c_str(), author_email.c_str(), creator.c_str(), creator_version.c_str(), 1);
 
     	          	const char *boundary[] = {"periodic", "periodic", "periodic"};
 
@@ -152,28 +156,122 @@ namespace espressopp {
     	          	std::string stepstring = static_cast<std::ostringstream*>(&(std::ostringstream() << step))->str();
     	          	std::string fin = "step_" + stepstring;
 
-    	          	part_group = h5md_create_particles_group(the_File, "Atoms");
+    	          	part_group = h5md_create_particles_group(ilfile, "atoms");
+    	          	//ilfile.parameters
+
+    	          	double the_skin = system->getSkin();
+    	          	long the_seed = system->rng->get_seed();
+    	          	//H5LTset_attribute_double(ilfile.parameters, "parameters", "skin", &the_skin, 1);
+    	          	//H5LTset_attribute_long(ilfile.parameters, "parameters", "rng_seed", &the_seed, 1);
+
+    	          	/*
+    	          	 * Create scalar attribute.
+    	          	 */
+    	          	hid_t aid2  = H5Screate(H5S_SCALAR);
+    	          	int attr2 = H5Acreate2(ilfile.parameters, "skin", H5T_NATIVE_DOUBLE, aid2,
+    	          	                  H5P_DEFAULT, H5P_DEFAULT);
+
+    	          	/*
+    	          	 * Write scalar attribute.
+    	          	 */
+    	          	int ret = H5Awrite(attr2, H5T_NATIVE_DOUBLE, &the_skin);
+
+    	          	/*
+    	          	 * Close attribute dataspace.
+    	          	 */
+    	          	ret = H5Sclose(aid2);
+
+    	          	/*
+    	          	 * Close attribute.
+    	          	 */
+    	          	ret = H5Aclose(attr2);
+
+
+					/*
+					 * Create scalar attribute.
+					 */
+					aid2  = H5Screate(H5S_SCALAR);
+					attr2 = H5Acreate2(ilfile.parameters, "rng_seed", H5T_NATIVE_LONG, aid2,
+									  H5P_DEFAULT, H5P_DEFAULT);
+
+					/*
+					 * Write scalar attribute.
+					 */
+					ret = H5Awrite(attr2, H5T_NATIVE_LONG, &the_seed);
+
+					/*
+					 * Close attribute dataspace.
+					 */
+					ret = H5Sclose(aid2);
+
+					/*
+					 * Close attribute.
+					 */
+					ret = H5Aclose(attr2);
+//					boost::python::import("sys");
+//					boost::python::object jj = boost::python::exec("sys.argv[0]");
+//					std::string script = boost::python::extract<std::string>(jj);
+//					h5md_write_string_attribute(ilfile.parameters, "script_name", "scipt_name", script.c_str());
+
+
+					/*
+					* Create scalar attribute.
+					*/
+					aid2  = H5Screate(H5S_SCALAR);
+					attr2 = H5Acreate2(ilfile.parameters, "length_factor", H5T_NATIVE_DOUBLE, aid2,
+					H5P_DEFAULT, H5P_DEFAULT);
+
+					/*
+					* Write scalar attribute.
+					*/
+					ret = H5Awrite(attr2, H5T_NATIVE_DOUBLE, &length_factor);
+
+					/*
+					* Close attribute dataspace.
+					*/
+					ret = H5Sclose(aid2);
+
+					/*
+					* Close attribute.
+					*/
+					ret = H5Aclose(attr2);
+
+
+					h5md_write_string_attribute(ilfile.id, "parameters", "length_unit", length_unit.c_str());
+//					hid_t s, t, a;
+//					herr_t status;
+//					t = H5Tcopy(H5T_C_S1);
+//					  status = H5Tset_size(t, strlen(length_unit.c_str()));
+//					  s = H5Screate(H5S_SCALAR);
+//					  a = H5Acreate(ilfile.parameters, "length_unit", t, s, H5P_DEFAULT, H5P_DEFAULT);
+//					  status = H5Awrite(a, t, length_unit.c_str());
+//					  status = H5Aclose(a);
+//					  status = H5Sclose(s);
+//					  status = H5Tclose(t);
+
     	          	h5md_create_box(&part_group, 3, boundary, false, box_edges, NULL);
 
     	        	int RANK = 2;
     	        	int dims[RANK];
     	        	dims[0] = totalN;
     	        	dims[1] = 3;
+    	        	int dims_1d[RANK];
+    	        	dims_1d[0] = totalN;
+    	        	dims_1d[1] = 1;
 
+    	        	// mind the types: pids are size_t, i.e. unsigned. errors happen if one sets H5T_NATIVE_INT as datatype for pids or types and size_t for the array when writing!
 
-
-
-    	        	if (datas.position == 1 || datas.all == 1) 	  part_group.position = h5md_create_time_data(part_group.group, "positions", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.pid == 1 || datas.all == 1)      	  part_group.id = h5md_create_time_data(part_group.group, "pids", 1, &totalN, H5T_NATIVE_INT, NULL);
-    	        	if (datas.type == 1 || datas.all == 1)     	  part_group.species = h5md_create_time_data(part_group.group, "types", 1, &totalN, H5T_NATIVE_INT, NULL);
-    	        	if (datas.velocity == 1 || datas.all == 1) 	  part_group.velocity = h5md_create_time_data(part_group.group, "velocities", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.force == 1 || datas.all == 1)    	  part_group.force = h5md_create_time_data(part_group.group, "forces", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.mass == 1 || datas.all == 1)     	  part_group.mass = h5md_create_time_data(part_group.group, "masses", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.charge == 1 || datas.all == 1)   	  part_group.charge = h5md_create_time_data(part_group.group, "charges", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.state == 1 || datas.all == 1)       part_group.state = h5md_create_time_data(part_group.group, "states", 1, &totalN, H5T_NATIVE_INT, NULL);
-    	        	if (datas.drift == 1 || datas.all == 1)       part_group.drift = h5md_create_time_data(part_group.group, "drifts", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.lambda == 1 || datas.all == 1)      part_group.lambda = h5md_create_time_data(part_group.group, "lambdas", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
-    	        	if (datas.lambdaDeriv == 1 || datas.all == 1) part_group.lambdaDeriv = h5md_create_time_data(part_group.group, "lambdaDerivs", 1, &totalN, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (datas.position == 1 || datas.all == 1) 	  part_group.position = h5md_create_time_data(part_group.group, "position", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (datas.pid == 1 || datas.all == 1)      	  part_group.id = h5md_create_time_data(part_group.group, "id", RANK, dims_1d, H5T_NATIVE_UINT64, NULL);
+    	        	if (datas.type == 1 || datas.all == 1)     	  part_group.species = h5md_create_time_data(part_group.group, "species", RANK, dims_1d, H5T_NATIVE_UINT64, NULL);
+    	        	if (datas.velocity == 1 || datas.all == 1) 	  part_group.velocity = h5md_create_time_data(part_group.group, "velocity", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (datas.force == 1 || datas.all == 1)    	  part_group.force = h5md_create_time_data(part_group.group, "force", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (datas.mass == 1 || datas.all == 1)     	  part_group.mass = h5md_create_time_data(part_group.group, "mass", RANK, dims_1d, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (datas.charge == 1 || datas.all == 1)   	  part_group.charge = h5md_create_time_data(part_group.group, "charg", RANK, dims_1d, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (datas.state == 1 || datas.all == 1)       part_group.state = h5md_create_time_data(part_group.group, "state", RANK, dims_1d, H5T_NATIVE_INT, NULL);
+    	        	if (datas.drift == 1 || datas.all == 1)       part_group.drift = h5md_create_time_data(part_group.group, "drift", RANK, dims_1d, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (datas.lambda == 1 || datas.all == 1)      part_group.lambda = h5md_create_time_data(part_group.group, "lambda", RANK, dims_1d, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (datas.lambdaDeriv == 1 || datas.all == 1) part_group.lambdaDeriv = h5md_create_time_data(part_group.group, "lambdaDeriv", RANK, dims_1d, H5T_NATIVE_DOUBLE, NULL);
 
 
 
@@ -195,7 +293,7 @@ namespace espressopp {
       void open();
       void sort_by_pid();
       void flush_file_stable_storage();
-      void close_file();
+      void close();
       /*
        * write helper routines
        *
@@ -224,6 +322,8 @@ namespace espressopp {
 
       bool getUnfolded(){return unfolded;}
       void setUnfolded(bool v){unfolded = v;}
+      bool getSortPids(){return sort_pids;}
+      void setSortPids(bool v){sort_pids = v;}
       bool getAppend(){return append;}
       void setAppend(bool v){append = v;}
 
@@ -304,6 +404,7 @@ namespace espressopp {
       bool append; //append to existing trajectory file or create a new one
       real length_factor;  // for example
       std::string length_unit; // length unit: {could be LJ, nm, A} it is just for user info
+      bool sort_pids;
       h5md_file ilfile;
       h5md_particles_group part_group;
     };

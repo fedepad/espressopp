@@ -21,7 +21,7 @@
 
 // http://stackoverflow.com/questions/10056393/g-with-python-h-how-to-compile
 // http://realmike.org/blog/2012/07/08/embedding-python-tutorial-part-1/
-#include "H5MDWriter.hpp"  // keep python.hpp on top
+#include "H5MDReader.hpp"  // keep python.hpp on top
 #include "storage/Storage.hpp"
 //#include "System.hpp"
 #include "storage/DomainDecomposition.hpp"
@@ -54,16 +54,16 @@ namespace espressopp {
   namespace io {
 
 
-  void H5MDWriter::open() {}
-  void H5MDWriter::sort_by_pid() {}
-  void H5MDWriter::close_file(h5md_file ilfile) {
+  void H5MDReader::open() {}
+  void H5MDReader::sort_by_pid() {}
+  void H5MDReader::close_file(h5md_file ilfile) {
 
 	  // move here closing of all the elements and the file
 	  //H5Gclose(atoms.group);
 	  //h5md_close_file(the_File);
 
   }
-  void H5MDWriter::flush_file_stable_storage() {
+  void H5MDReader::flush_file_stable_storage() {
 
 	  // move here flush to stable storage to avoid corruptions
 	  //H5Fflush()
@@ -72,7 +72,7 @@ namespace espressopp {
   }
 
 
-   void H5MDWriter::write_n_to_1(){
+   void H5MDReader::write_n_to_1(){
 
 	   // move the creating file part in the constructor!!!!
 	   // Separate the close...i.e. do not close the file here! It's a write method, not a close!
@@ -618,7 +618,7 @@ namespace espressopp {
 
 
 
-    void H5MDWriter::write_n_to_n(){
+    void H5MDReader::write_n_to_n(){
 
     	shared_ptr<System> system = getSystem();
     	int rank = system->comm->rank();
@@ -799,7 +799,7 @@ namespace espressopp {
 
 
 
-    void H5MDWriter::write(){
+    void H5MDReader::write(){
 
     	int iomodus = getIomode();
     	if (iomodus == 1 || iomodus == 0) {
@@ -811,12 +811,12 @@ namespace espressopp {
 
 
     // Python wrapping
-    void H5MDWriter::registerPython() {
+    void H5MDReader::registerPython() {
 
       using namespace espressopp::python;
 
-      class_<H5MDWriter, bases<ParticleAccess>, boost::noncopyable >
-      ("io_H5MDWriter", init< shared_ptr< System >,
+      class_<H5MDReader, boost::noncopyable >
+      ("io_H5MDReader", init< shared_ptr< System >,
                            shared_ptr< integrator::MDIntegrator >,
                            std::string,
 						   std::string,
@@ -829,30 +829,30 @@ namespace espressopp {
                            real,
                            std::string ,
                            bool>())
-        .add_property("filename", &H5MDWriter::getFilename,
-                                  &H5MDWriter::setFilename)
-	    .add_property("author", &H5MDWriter::getFilename,
-								  &H5MDWriter::setFilename)
-	    .add_property("author_email", &H5MDWriter::getFilename,
-								  &H5MDWriter::setFilename)
-	    .add_property("creator", &H5MDWriter::getFilename,
-								  &H5MDWriter::setFilename)
-		.add_property("creator_version", &H5MDWriter::getFilename,
-								  &H5MDWriter::setFilename)
-	    .add_property("iomode", &H5MDWriter::getIomode,
-								&H5MDWriter::setIomode)
-		.add_property("data_to_store", &H5MDWriter::getDataToStore,
-										&H5MDWriter::set_init_table)
+        .add_property("filename", &H5MDReader::getFilename,
+                                  &H5MDReader::setFilename)
+	    .add_property("author", &H5MDReader::getFilename,
+								  &H5MDReader::setFilename)
+	    .add_property("author_email", &H5MDReader::getFilename,
+								  &H5MDReader::setFilename)
+	    .add_property("creator", &H5MDReader::getFilename,
+								  &H5MDReader::setFilename)
+		.add_property("creator_version", &H5MDReader::getFilename,
+								  &H5MDReader::setFilename)
+	    .add_property("iomode", &H5MDReader::getIomode,
+								&H5MDReader::setIomode)
+		.add_property("data_to_store", &H5MDReader::getDataToStore,
+										&H5MDReader::set_init_table)
 
-        .add_property("unfolded", &H5MDWriter::getUnfolded,
-                                  &H5MDWriter::setUnfolded)
-        .add_property("length_factor", &H5MDWriter::getLengthFactor,
-                                       &H5MDWriter::setLengthFactor)
-        .add_property("length_unit", &H5MDWriter::getLengthUnit,
-                                     &H5MDWriter::setLengthUnit)
-        .add_property("append", &H5MDWriter::getAppend,
-                                  &H5MDWriter::setAppend)
-        .def("write", &H5MDWriter::write)
+        .add_property("unfolded", &H5MDReader::getUnfolded,
+                                  &H5MDReader::setUnfolded)
+        .add_property("length_factor", &H5MDReader::getLengthFactor,
+                                       &H5MDReader::setLengthFactor)
+        .add_property("length_unit", &H5MDReader::getLengthUnit,
+                                     &H5MDReader::setLengthUnit)
+        .add_property("append", &H5MDReader::getAppend,
+                                  &H5MDReader::setAppend)
+        .def("write", &H5MDReader::write)
       ;
     }
   }
