@@ -60,7 +60,8 @@ namespace espressopp {
         int position;
         int velocity;
         int force;
-        info_table_ini() : all(), pid(), type(), mass(), charge(), lambda(), drift(), lambdaDeriv(), state(), position(), velocity(), force() {}
+        int image;
+        info_table_ini() : all(), pid(), type(), mass(), charge(), lambda(), drift(), lambdaDeriv(), state(), position(), velocity(), force(), image() {}
     };
 
 
@@ -262,6 +263,7 @@ namespace espressopp {
     	        	// mind the types: pids are size_t, i.e. unsigned. errors happen if one sets H5T_NATIVE_INT as datatype for pids or types and size_t for the array when writing!
 
     	        	if (datas.position == 1 || datas.all == 1) 	  part_group.position = h5md_create_time_data(part_group.group, "position", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
+    	        	if (unfolded) 	  							  part_group.image = h5md_create_time_data(part_group.group, "image", RANK, dims, H5T_NATIVE_INT, NULL);
     	        	if (datas.pid == 1 || datas.all == 1)      	  part_group.id = h5md_create_time_data(part_group.group, "id", RANK, dims_1d, H5T_NATIVE_UINT64, NULL);
     	        	if (datas.type == 1 || datas.all == 1)     	  part_group.species = h5md_create_time_data(part_group.group, "species", RANK, dims_1d, H5T_NATIVE_UINT64, NULL);
     	        	if (datas.velocity == 1 || datas.all == 1) 	  part_group.velocity = h5md_create_time_data(part_group.group, "velocity", RANK, dims, H5T_NATIVE_DOUBLE, NULL);
@@ -341,7 +343,8 @@ namespace espressopp {
             table_init->all = 1;
         } else {
 
-            if (ciao.find("pid") != ciao.end()) {table_init->pid = 1;}
+            //if (ciao.find("pid") != ciao.end()) {table_init->pid = 1;}
+        	table_init->pid = 1;
             if (ciao.find("type") != ciao.end()) {table_init->type = 1;}
             if (ciao.find("mass") != ciao.end()) {table_init->mass = 1;}
             if (ciao.find("charge") != ciao.end()) {table_init->charge = 1;}
@@ -352,6 +355,7 @@ namespace espressopp {
             if (ciao.find("position") != ciao.end()) {table_init->position = 1;}
             if (ciao.find("velocity") != ciao.end()) {table_init->velocity = 1;}
             if (ciao.find("force") != ciao.end()) {table_init->force = 1;}
+            if (unfolded) {table_init->image = 1;}
 
         }
 

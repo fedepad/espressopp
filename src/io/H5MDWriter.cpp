@@ -62,6 +62,7 @@ namespace espressopp {
 
 
 	if (datas.position == 1 || datas.all == 1) 	  h5md_close_element(part_group.position);
+	if (datas.image == 1 || datas.all == 1) 	  h5md_close_element(part_group.image);
 	if (datas.pid == 1 || datas.all == 1) 		  h5md_close_element(part_group.id);
 	if (datas.type == 1 || datas.all == 1) 		  h5md_close_element(part_group.species);
 	if (datas.velocity == 1 || datas.all == 1) 	  h5md_close_element(part_group.velocity);
@@ -194,6 +195,7 @@ namespace espressopp {
 	size_t* pids = new size_t [myN];
 	size_t* types = new size_t [myN];
 	double* coordina = new double [myN*3];
+	int* images = new int [myN*3];
 	double* velocities = new double [myN*3];
 	double* forces = new double [myN*3];
 	double* charges = new double [myN];
@@ -214,20 +216,26 @@ namespace espressopp {
 	  if( unfolded ){
 		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
 
-		  if (datas.pid == 1 || datas.all == 1) {
+		  //if (datas.pid == 1 || datas.all == 1) { // always pids
 			  pids[i] = cit->id();
 
-		  }
+		  //}
 		  if (datas.position == 1 || datas.all == 1) {
-		  Real3D& pos = cit->position();
-		  Int3D& img = cit->image();
-//		  coordina[i][0] = pos[0] + img[0] * L[0];
-//		  coordina[i][1] = pos[1] + img[1] * L[1];
-//		  coordina[i][2] = pos[2] + img[2] * L[2];
-		  coordina[i*3] = pos[0] + img[0] * L[0];
-		  coordina[i*3+1] = pos[1] + img[1] * L[1];
-		  coordina[i*3+2] = pos[2] + img[2] * L[2];
+			  Real3D& pos = cit->position();
+			  Int3D& img = cit->image();
+	//		  coordina[i][0] = pos[0] + img[0] * L[0];
+	//		  coordina[i][1] = pos[1] + img[1] * L[1];
+	//		  coordina[i][2] = pos[2] + img[2] * L[2];
+			  coordina[i*3]   = pos[0] + img[0] * L[0];
+			  coordina[i*3+1] = pos[1] + img[1] * L[1];
+			  coordina[i*3+2] = pos[2] + img[2] * L[2];
 		  }
+		  //if (datas.image == 1 || datas.all == 1) {
+		  		  Int3D& img = cit->image();
+		  		  images[i*3]   = img[0];
+		  		  images[i*3+1] = img[1];
+		  		  images[i*3+2] = img[2];
+		  //		  }
 		  if (datas.velocity == 1 || datas.all == 1) {
 			  Real3D& vel = cit->velocity();
 //			  velocities[i][0] = vel[0];
@@ -287,10 +295,10 @@ namespace espressopp {
 	  else{
 		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
 
-		  if (datas.pid == 1 || datas.all == 1) {
+		  //if (datas.pid == 1 || datas.all == 1) { //always pids
 			  pids[i] = cit->id();
 
-		  }
+		  //}
 		  if (datas.position == 1 || datas.all == 1) {
 		  Real3D& pos = cit->position();
 //		  coordina[i][0] = pos[0];
@@ -396,6 +404,7 @@ namespace espressopp {
 		offset[0] = 0;
 
 	if (datas.position == 1  || datas.all == 1)   h5md_append(part_group.position, coordina, step, time_, plist_id, offset[1], myN);
+	if (unfolded && (datas.image == 1  || datas.all == 1))   h5md_append(part_group.position, images, step, time_, plist_id, offset[1], myN);
 	if (datas.pid == 1  || datas.all == 1)        h5md_append(part_group.id, pids, step, time_, plist_id, offset[1], myN);
 	if (datas.type == 1 || datas.all == 1)     	  h5md_append(part_group.species, types, step, time_, plist_id, offset[1], myN);
 	if (datas.velocity == 1 || datas.all == 1) 	  h5md_append(part_group.velocity, velocities, step, time_, plist_id, offset[1], myN);
@@ -430,6 +439,7 @@ namespace espressopp {
 	delete [] pids;
 	delete [] types;
 	delete [] coordina;
+	delete [] images;
 	delete [] velocities;
 	delete [] forces;
 	delete [] charges;
