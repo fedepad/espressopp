@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-#include <sys/vfs.h>
 
 
 #if OP_SYSTEM == OSX
@@ -37,8 +36,7 @@
 #endif
 
 #ifdef USING_LINUX
-	#include <sys/param.h>
-	#include <sys/mount.h>
+#include <sys/vfs.h>
 // end OSX
 #endif
 
