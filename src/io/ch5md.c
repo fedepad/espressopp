@@ -6,12 +6,41 @@
  * of the BSD license. See the LICENSE file for details.
  */
 
-#include "hdf5.h"
+//#include "hdf5.h"
 #include "ch5md.h"
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
+#include <sys/vfs.h>
+
+
+#if OP_SYSTEM == OSX
+    #define USING_OSX
+        #undef USING_LINUX
+        #undef USING_WINDOWS
+#elif OP_SYSTEM == LINUX
+        #define USING_LINUX
+        #undef USING_OSX
+        #undef USING_WINDOWS
+#elif OP_SYSTEM == WINDOWS
+        #define USING_WINDOWS
+        #undef USING_LINUX
+        #undef USING_OSX
+#endif
+
+//for OSX
+#ifdef USING_OSX
+	#include <sys/param.h>
+	#include <sys/mount.h>
+// end OSX
+#endif
+
+#ifdef USING_LINUX
+	#include <sys/param.h>
+	#include <sys/mount.h>
+// end OSX
+#endif
 
 //#ifdef _PARALLEL_V
     #include "mpi.h"
@@ -23,7 +52,7 @@
 #define MAX_RANK 5
 
 
-h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel)  // parallel default, otherwise fall back to serial lib...-> parallel = 0
+h5md_file h5md_create_file (const char *filename, const char *author, const char *author_email, const char *creator, const char *creator_version, int parallel, const char* aggregators)  // parallel default, otherwise fall back to serial lib...-> parallel = 0
 {
 
   h5md_file file;
@@ -43,15 +72,60 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
   } else if (parallel == 1) {
 	//printf("In parallel mode!\n");
     acc_template = H5Pcreate(H5P_FILE_ACCESS);
+
     MPI_Info info;
     MPI_Info_create(&info);
+
     const char* hint_stripe = "striping_unit";
     const char* stripe_value = "4194304";
-    MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings
+    /* Disables ROMIO's data-sieving */
+    MPI_Info_set(info, "romio_ds_read", "disable");
+    MPI_Info_set(info, "romio_ds_write", "disable");
+
+     /* Enable ROMIO's collective buffering */
+    MPI_Info_set(info, "romio_cb_read", "enable");
+    MPI_Info_set(info, "romio_cb_write", "enable");
+
+
+    // collective buffering tuning
+    MPI_Info_set(info, "cb_nodes", (char*)aggregators);  // number of aggregators: how many MPI ranks perform the write...
+    //MPI_Info_set(info, "cb_buffer_size", "disable"); //
+
+
+    MPI_Info_set(info, (char*)hint_stripe, (char*)stripe_value); // 4MB stripe. cast to avoid spurious warnings. OK for Lustre
+
+
     //add my detection of fs...don't know where it went!!!!!
     H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
     file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template);
     assert(file.id > 0);
+    struct statfs filesystem_info;
+	statfs(filename, &filesystem_info);
+	if (filesystem_info.f_type == 0x0BD00BD0) {
+		printf("Lustre baby!\n");
+		// set approriate hints for Lustre
+	} else if (filesystem_info.f_type == 0x47504653) {
+		printf("GPFS baby!\n");
+		// set approriate hints for Lustre
+	} else if (filesystem_info.f_type == 0xEF53) {
+
+		printf("Ext2,ext3 or ext4!!\n");
+	} else if (filesystem_info.f_type == 0x4244) {
+		printf("HFS, probably on a mac!!\n");
+
+	} else if (filesystem_info.f_type == 0x6969) {
+		printf("NFS!!\n");
+
+	} else if (filesystem_info.f_type == 0xFF534D42) {
+		printf("CIFS!!\n");
+
+	} else if (filesystem_info.f_type == 0x58465342) {
+		printf("XFS!!\n");
+
+	}
+
+    //should free the MPI_Info object
+    //MPI_Info_free(&info);
 
   }
 
@@ -234,25 +308,6 @@ hid_t h5md_open_file (const char *filename)
 
 }
 
-h5md_particles_group h5md_create_observables_group(h5md_file file, const char *name)
-{
-  h5md_particles_group group;
-
-  group.group = H5Gcreate(file.observables, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-  return group;
-}
-
-h5md_particles_group h5md_create_parameters_group(h5md_file file, const char *name)
-{
-  h5md_particles_group group;
-
-  group.group = H5Gcreate(file.parameters, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-
-  return group;
-}
-
-
 h5md_particles_group h5md_create_particles_group(h5md_file file, const char *name)
 {
   h5md_particles_group group;
@@ -424,9 +479,8 @@ int h5md_extend_by_one(hid_t dset, hsize_t *dims) {
 
 }
 
-int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_id, int offset, int data_size) {
+int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_id, int offset, int data_size, int shared_file) {
 
-  //printf("offset: %d\n", offset);
   hid_t mem_space, file_space;
   int i, rank;
   hsize_t dims[H5S_MAX_RANK];
@@ -454,7 +508,12 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
       count[i] = dims[i];
     }
     H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
-    H5Dwrite(e.step, H5T_NATIVE_INT, mem_space, file_space, plist_id, (void *)&step);
+    if (shared_file == 1) {
+    	//H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
+    	H5Dwrite(e.step, H5T_NATIVE_INT, mem_space, file_space, plist_id, (void *)&step);
+    } else {
+    	H5Dwrite(e.step, H5T_NATIVE_INT, mem_space, file_space, H5P_DEFAULT, (void *)&step);
+    }
     H5Sclose(file_space);
     H5Sclose(mem_space);
 
@@ -476,7 +535,12 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
       count[i] = dims[i];
     }
     H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
-    H5Dwrite(e.time, H5T_NATIVE_DOUBLE, mem_space, file_space, plist_id, (void *)&time);
+    if (shared_file == 1) {
+    	//H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
+    	H5Dwrite(e.time, H5T_NATIVE_DOUBLE, mem_space, file_space, plist_id, (void *)&time);
+    } else {
+    	H5Dwrite(e.time, H5T_NATIVE_DOUBLE, mem_space, file_space, H5P_DEFAULT, (void *)&time);
+    }
     H5Sclose(file_space);
     H5Sclose(mem_space);
   }
@@ -498,17 +562,22 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
   }
 
   // reuse logic in #
+  if (shared_file == 1) {
+	  start[1] = offset;
+	  count[1] = data_size;
 
-  start[1] = offset;
-  count[1] = data_size;
+	  //start[0] = offset;
 
-  //start[0] = offset;
+	//  int mpi_rankk;
+	//  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rankk);
+	//  printf("start[0]: %d, start[1]: %d, count[0]: %d, count[1]: %d; from MPI rank: %d\n", start[0], start[1], count[0], count[1], mpi_rankk);
+	  H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
+	  H5Dwrite(e.value, e.datatype, mem_space, file_space, plist_id, data);
+  } else {
+	  H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
+	  H5Dwrite(e.value, e.datatype, mem_space, file_space, H5P_DEFAULT, data);
 
-//  int mpi_rankk;
-//  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rankk);
-//  printf("start[0]: %d, start[1]: %d, count[0]: %d, count[1]: %d; from MPI rank: %d\n", start[0], start[1], count[0], count[1], mpi_rankk);
-  H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
-  H5Dwrite(e.value, e.datatype, mem_space, file_space, plist_id, data);
+  }
   H5Sclose(file_space);
   H5Sclose(mem_space);
 

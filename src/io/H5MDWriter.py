@@ -60,7 +60,7 @@ r"""
       data_to_store = ['pid', 'position', 'type'] --> save pid, position and type
       for each particle
   Possible fields per particle to be saved:
-  pid, type, position, velocity, force, charge, mass, state, drift, lambda, lambdaDeriv.
+  pid, type, position, velocity, force, image, charge, mass, state, drift, lambda, lambdaDeriv.
 
 * `unfolded`
   False if coordinates are folded, True if unfolded. By default - False
@@ -117,6 +117,7 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
         :param length_factor: (default: 1.0)
         :param length_unit: (default: 'LJ')
         :param append: (default: True)
+        :param writers: (default: 0)
         :type system:
         :type integrator:
         :type filename: string
@@ -130,6 +131,7 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
         :type length_factor: real
         :type length_unit: real
         :type append: bool
+        :type writers: int
 
 .. function:: espressopp.io.H5MDWriter.write()
 
@@ -146,17 +148,17 @@ from _espressopp import io_H5MDWriter
 
 class H5MDWriterLocal(ParticleAccessLocal, io_H5MDWriter):
 
-  def __init__(self, system, integrator, filename='out.h5', author=os.environ['USER'],
+  def __init__(self, system, integrator, filename=os.path.join(os.getcwd(), 'out.h5'), author=os.environ['USER'],
                author_email="username@domain.state", creator = espressopp.VersionLocal().name,
                #creator_version = ".".join([str(espressopp.VersionLocal().major),
                #                           str(espressopp.VersionLocal().minor),
                #                           str(espressopp.VersionLocal().patchlevel)]),
                creator_version = espressopp.VersionLocal().info(),
                 iomode=1, data_to_store=['all'], unfolded=False, length_factor=1.0,
-               length_unit='LJ', sort_pids=False, append=True):
+               length_unit='LJ', sort_pids=False, append=True, writers=0):
     cxxinit(self, io_H5MDWriter, system, integrator, filename, author,
             author_email, creator, creator_version, iomode, data_to_store,
-            unfolded, length_factor, length_unit, sort_pids, append)
+            unfolded, length_factor, length_unit, sort_pids, append, writers)
 
   def write(self):
     if pmi.workerIsActive():
@@ -169,5 +171,5 @@ if pmi.isController :
     pmiproxydefs = dict(
       cls =  'espressopp.io.H5MDWriterLocal',
       pmicall = [ 'dump', 'close' ],
-      pmiproperty = ['filename', 'author', 'author_email', 'creator', 'creator_version', 'iomode', 'data_to_store', 'unfolded', 'length_factor', 'length_unit', 'sort_pids', 'append']
+      pmiproperty = ['filename', 'author', 'author_email', 'creator', 'creator_version', 'iomode', 'data_to_store', 'unfolded', 'length_factor', 'length_unit', 'sort_pids', 'append', 'writers']
     )

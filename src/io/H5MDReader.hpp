@@ -27,7 +27,6 @@
 #include "ParticleAccess.hpp"  // keep python.hpp on top
 #include "System.hpp"
 #include "integrator/MDIntegrator.hpp"
-#include "io/FileBackup.hpp"
 #include "esutil/Error.hpp"
 #include "Version.hpp"
 #include "template_py_to_cpp_containers.hpp"
@@ -38,6 +37,7 @@
 #include <boost/python/module.hpp>
 #include <boost/python/args.hpp>
 
+#include "ch5md.h"
 
 namespace espressopp {
   namespace io{
@@ -64,11 +64,10 @@ namespace espressopp {
 
     public:
 
-    	H5MDReader(std::string _file_name,
-    				):
+    	H5MDReader(std::string _file_name):
 //    	                          ParticleAccess(system),
 //    	                          integrator(_integrator),
-    	                          file_name( _file_name),
+    	                          file_name( _file_name)
 //    							  author(_author),
 //    							  author_email(_author_email),
 //    							  creator(_creator),
@@ -110,8 +109,9 @@ namespace espressopp {
 //
 
 
-
-
+    		// open the H5MD file
+    		hid_t opened_file = h5md_open_file (file_name.c_str());
+    		//opened_file.
 
 
 

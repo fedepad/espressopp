@@ -210,6 +210,26 @@ endif()
 
 
 
+### Check host OS
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+   # Mac OS X specific code
+   set(OperatingSystem "OSX")
+else(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    # Linux specific code
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+        set(OperatingSystem "LINUX")
+    endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")  
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        set(OperatingSystem "WINDOWS")
+    endif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")  
+endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+
+message("Host Operating System: " ${OperatingSystem})
+
+add_definitions(-DOP_SYSTEM=${OperatingSystem})
+
+
 
 ######################################
 # Include the following subdirectory #
