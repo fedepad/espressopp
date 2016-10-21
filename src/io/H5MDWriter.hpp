@@ -449,7 +449,7 @@ namespace espressopp {
       real length_factor;  // for example
       std::string length_unit; // length unit: {could be LJ, nm, A} it is just for user info
       bool sort_pids;
-      int writers;
+      int writers; // just to ease benchmarking with varying number of aggregators w/o recompiling. TB removed in the final version.
       h5md_file ilfile;
       h5md_particles_group part_group;
     };

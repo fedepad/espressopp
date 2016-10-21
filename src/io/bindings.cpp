@@ -1,6 +1,6 @@
 /*
   Copyright (C) 2016
-      Max Planck Institute for Polymer Research & JGU Mainz
+      JGU Mainz
   Copyright (C) 2014,2015
       Max Planck Institute for Polymer Research
   Copyright (C) 2012,2013

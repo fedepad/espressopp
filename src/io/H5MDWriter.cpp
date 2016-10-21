@@ -45,7 +45,6 @@ namespace espressopp {
   namespace io {
 
 
-  void H5MDWriter::open() {}
   void H5MDWriter::sort_by_pid() {}
   void H5MDWriter::close() {
 	 // check if we need to sort the pids...
@@ -70,11 +69,8 @@ namespace espressopp {
   }
 
   void H5MDWriter::flush_file_stable_storage() {
-
-	  // move here flush to stable storage to avoid corruptions
-	  //H5Fflush()
-
-
+	  // move here flush to stable storage to avoid corruptions: relies on the OS to actually flush dirty buffers
+	  H5Fflush(ilfile.id, H5F_SCOPE_GLOBAL);
   }
 
 

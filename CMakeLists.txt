@@ -181,8 +181,10 @@ if(ENABLE_HDF5)
     #    -DHDF5_BUILD_HL_LIB=ON
     #    -DHDF5_BUILD_TOOLS=ON
     #    -DHDF5_ENABLE_PARALLEL=ON
+    #    -DHDF5_ENABLE_Z_LIB_SUPPORT=ON
     #    )
     #set(_hdf5_version "1.8.15-patch1")
+    #set(_hdf5_version "1.8.16")
     #file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/src)
     #ExternalProject_Add(hdf5_local
     #    DOWNLOAD_COMMAND curl http://www.hdfgroup.org/ftp/HDF5/current/src/hdf5-${_hdf5_version}.tar.gz | tar xvz -C ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/src
@@ -210,7 +212,7 @@ endif()
 
 
 
-### Check host OS
+### Check host OS: extra for fs detection
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
    # Mac OS X specific code

@@ -84,7 +84,7 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
     MPI_Info_set(info, "romio_cb_read", "enable");
     MPI_Info_set(info, "romio_cb_write", "enable");
 
-
+    //printf("# writers: %s\n", aggregators);
     // collective buffering tuning
     MPI_Info_set(info, "cb_nodes", (char*)aggregators);  // number of aggregators: how many MPI ranks perform the write...
     //MPI_Info_set(info, "cb_buffer_size", "disable"); //
@@ -97,30 +97,30 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
     H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
     file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template);
     assert(file.id > 0);
-    struct statfs filesystem_info;
-	statfs(filename, &filesystem_info);
-	if (filesystem_info.f_type == 0x0BD00BD0) {
-		printf("Lustre baby!\n");
-		// set approriate hints for Lustre
-	} else if (filesystem_info.f_type == 0x47504653) {
-		printf("GPFS baby!\n");
-		// set approriate hints for Lustre
-	} else if (filesystem_info.f_type == 0xEF53) {
-
-		printf("Ext2,ext3 or ext4!!\n");
-	} else if (filesystem_info.f_type == 0x4244) {
-		printf("HFS, probably on a mac!!\n");
-
-	} else if (filesystem_info.f_type == 0x6969) {
-		printf("NFS!!\n");
-
-	} else if (filesystem_info.f_type == 0xFF534D42) {
-		printf("CIFS!!\n");
-
-	} else if (filesystem_info.f_type == 0x58465342) {
-		printf("XFS!!\n");
-
-	}
+//    struct statfs filesystem_info;
+//	statfs(filename, &filesystem_info);
+//	if (filesystem_info.f_type == 0x0BD00BD0) {
+//		printf("Lustre baby!\n");
+//		// set approriate hints for Lustre
+//	} else if (filesystem_info.f_type == 0x47504653) {
+//		printf("GPFS baby!\n");
+//		// set approriate hints for Lustre
+//	} else if (filesystem_info.f_type == 0xEF53) {
+//
+//		printf("Ext2,ext3 or ext4!!\n");
+//	} else if (filesystem_info.f_type == 0x4244) {
+//		printf("HFS, probably on a mac!!\n");
+//
+//	} else if (filesystem_info.f_type == 0x6969) {
+//		printf("NFS!!\n");
+//
+//	} else if (filesystem_info.f_type == 0xFF534D42) {
+//		printf("CIFS!!\n");
+//
+//	} else if (filesystem_info.f_type == 0x58465342) {
+//		printf("XFS!!\n");
+//
+//	}
 
     //should free the MPI_Info object
     //MPI_Info_free(&info);

@@ -1,5 +1,5 @@
 #  Copyright (C) 2016
-#      Max Planck Institute for Polymer Research & JGU Mainz
+#      JGU Mainz
 #
 #  This file is part of ESPResSo++.
 #
@@ -27,8 +27,8 @@ r"""
   coordinates are folded.
   
 * `close()`
-  write configuration to H5MD file. By default filename is "out.h5",
-  coordinates are folded.
+  close the opened H5MD file. Required to be called after finishing
+  collecting data.
 
   Properties
 
@@ -48,7 +48,12 @@ r"""
   Version of the program that created the file.
 
 * `iomode`
-  Iomode: 0 serial, 1 Nto1, 2 NtoN. Right now N-to-1 is activated by default.
+  iomode possible values:
+  
+  -  0: serial (not tested) 
+  -  1: write one file in parallel (N-to-1), 
+  -  2: write in parallel a file per MPI rank (N-to-N) 
+  
 
 * `data_to_store`
   List containing the particle properties that one wants to save: ['all'] saves the
@@ -56,9 +61,11 @@ r"""
   state, drift, lambda, lambdaDeriv) or ['pid', 'mass', 'charge'] means only the pid,
   mass and charge of each particle need to be saved. Default - ['all']
   Example:
-      data_to_store = ['all']  --> saves the all particle struct
-      data_to_store = ['pid', 'position', 'type'] --> save pid, position and type
-      for each particle
+  
+  -  data_to_store = ['all']  --> saves the all particle struct
+  -  data_to_store = ['pid', 'position', 'type'] --> save pid, position and type
+     for each particle
+  
   Possible fields per particle to be saved:
   pid, type, position, velocity, force, image, charge, mass, state, drift, lambda, lambdaDeriv.
 
@@ -103,23 +110,21 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
 
 .. function:: espressopp.io.H5MDWriter(system, integrator, filename, iomode, data_to_store, unfolded, length_factor, length_unit, append)
 
-        :param system:
-        :param integrator:
-        :param filename: (default: 'out.h5')
-        :param author: (default: 'out.h5')
-        :param author_email: (default: 'NULL')
-        :param creator: (default: 'EsPResso++')
-        :param creator_version: (default: xxxx)
-
-        :param iomode: (default: 1)
-        :param data_to_store: (default: ['all'])
-        :param unfolded: (default: False)
+        :param system: The system object
+        :param integrator: The integrator object
+        :param filename: The name of the file (default: 'out.h5')
+        :param author: The user producing the output file (default: current user)
+        :param author_email: email of the user producing the file (default: 'username@domain.state')
+        :param creator: Name of the program that generates the file/s (default: 'EsPResso++')
+        :param creator_version: Version of the program that generates the file/s (default: xxxx)
+        :param iomode: File write IO mode: one single file or a file per MPI rank (default: 1)
+        :param data_to_store: Holds which data the user wants to store (default: ['all'], pid always saved)
+        :param unfolded: Weather coordinates are folded or unfolded (default: False)
         :param length_factor: (default: 1.0)
         :param length_unit: (default: 'LJ')
         :param append: (default: True)
-        :param writers: (default: 0)
-        :type system:
-        :type integrator:
+        :type system: espressopp.system
+        :type integrator: espresso.integrator
         :type filename: string
         :type author: string
         :type author_email: string
@@ -131,11 +136,10 @@ will produce trj.h5 with  in nanometers // Federico P. comment: what in nanomete
         :type length_factor: real
         :type length_unit: real
         :type append: bool
-        :type writers: int
 
-.. function:: espressopp.io.H5MDWriter.write()
+.. function:: espressopp.io.H5MDWriter()
 
-        :rtype:
+        :rtype: The writer for H5MDWriter
 """
 
 import os
@@ -160,9 +164,13 @@ class H5MDWriterLocal(ParticleAccessLocal, io_H5MDWriter):
             author_email, creator, creator_version, iomode, data_to_store,
             unfolded, length_factor, length_unit, sort_pids, append, writers)
 
-  def write(self):
+  def dump(self):
     if pmi.workerIsActive():
-      self.cxxclass.write(self)
+      self.cxxclass.dump(self)
+      
+  def close(self):
+    if pmi.workerIsActive():
+      self.cxxclass.close(self)
 
 
 if pmi.isController :
