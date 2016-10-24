@@ -69,7 +69,7 @@ h5md_element h5md_create_time_data(hid_t loc, const char *name, int rank, int in
 int h5md_close_element(h5md_element e);
 h5md_element h5md_create_fixed_data_simple(hid_t loc, const char *name, int rank, int int_dims[], hid_t datatype, void *data);
 h5md_element h5md_create_fixed_data_scalar(hid_t loc, const char *name, hid_t datatype, void *data);
-int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_id, int offset, int data_size, int shared_file);
+int h5md_append(h5md_element e, void *data, int step, double time, int offset, int data_size, int shared_file);
 int h5md_create_box(h5md_particles_group *group, int dim, const char *boundary[], bool is_time, double value[], h5md_element *link);
 int h5md_write_string_attribute(hid_t loc, const char *obj_name,
     const char *att_name, const char *value);

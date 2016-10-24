@@ -18,14 +18,6 @@ enable_testing()
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-include(CheckCXXCompilerFlag)
-check_cxx_compiler_flag("-std=c++98" COMPILER_SUPPORTS_CXX98)
-if(COMPILER_SUPPORTS_CXX98)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++98")
-else(COMPILER_SUPPORTS_CXX98)
-    message(FATAL_ERROR "Compiler flag -std=c++98 not supported")
-endif(COMPILER_SUPPORTS_CXX98)
-
 ########################################################################
 # User input options                                                   #
 ########################################################################
@@ -181,46 +173,50 @@ if(ENABLE_HDF5)
     add_definitions( -DHDF5_LAYER  )
     add_definitions( -DPARALLEL_V )
     #add_definitions( -DH5XX_USE_MPI )
-  else()  ## probably won't work this part, haven't tested!
+  else()  ## tested on a cluster, fresh install
   # we did not find it so we fetch it from the web, configure, compile, and link
-    #include(ExternalProject)
-    #set(ExternalProjectCMakeArgs
-    #    -DBUILD_SHARED_LIBS=ON
-    #    -DHDF5_BUILD_HL_LIB=ON
-    #    -DHDF5_BUILD_TOOLS=ON
-    #    -DHDF5_ENABLE_PARALLEL=ON
-    #    -DHDF5_ENABLE_Z_LIB_SUPPORT=ON
-    #    )
-    #set(_hdf5_version "1.8.15-patch1")
-    #set(_hdf5_version "1.8.16")
-    #file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/src)
-    #ExternalProject_Add(hdf5_local
-    #    DOWNLOAD_COMMAND curl http://www.hdfgroup.org/ftp/HDF5/current/src/hdf5-${_hdf5_version}.tar.gz | tar xvz -C ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/src
-    #    CMAKE_ARGS ${ExternalProjectCMakeArgs}
-    #    SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/src/hdf5-${_hdf5_version}
-    #    BINARY_DIR ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/build
-    #    STAMP_DIR  ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/stamp
-    #    TMP_DIR    ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/tmp
-    #    INSTALL_COMMAND ""
-    #    )
+    include(ExternalProject)
+    set(ExternalProjectCMakeArgs
+        -DBUILD_SHARED_LIBS=ON
+        -DHDF5_BUILD_HL_LIB=ON
+        -DHDF5_BUILD_TOOLS=ON
+        -DHDF5_ENABLE_PARALLEL=ON
+        -DHDF5_BUILD_CPP_LIB=OFF
+	-DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_SOURCE_DIR}/contrib/hdf5/install
+	INSTALL_DIR ${CMAKE_SOURCE_DIR}/contrib/hdf5/install
+	)
+    set(HDF5_VERSION "1.8.15-patch1")
+    file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/contrib/hdf5/src)
+    ExternalProject_Add(HDF5
+        DOWNLOAD_COMMAND curl
+https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-${HDF5_VERSION}/src/hdf5-${HDF5_VERSION}.tar.gz | tar xvz -C ${CMAKE_SOURCE_DIR}/contrib/hdf5/src
+        CMAKE_ARGS ${ExternalProjectCMakeArgs}
+        SOURCE_DIR ${CMAKE_SOURCE_DIR}/contrib/hdf5/src/hdf5-${HDF5_VERSION}
+        BINARY_DIR ${CMAKE_SOURCE_DIR}/contrib/hdf5/build
+        #STAMP_DIR  ${CMAKE_SOURCE_DIR}/contrib/hdf5/stamp
+        #TMP_DIR    ${CMAKE_SOURCE_DIR}/contrib/hdf5/tmp
+	INSTALL_COMMAND make install
+        )
     #include_directories(
-    #    ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/src/hdf5-${_hdf5_version}/src
-    #    #${CMAKE_SOURCE_DIR}/contrib/hdf5_local/src/hdf5-${_hdf5_version}/c++/src
-    #    ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/build/include
+        #${CMAKE_SOURCE_DIR}/contrib/hdf5/install
+        #${CMAKE_SOURCE_DIR}/contrib/hdf5/src/hdf5-${_hdf5_version}/src
+        #${CMAKE_SOURCE_DIR}/contrib/hdf5/src/hdf5-${_hdf5_version}/c++/src
+    #    ${CMAKE_SOURCE_DIR}/contrib/hdf5/install/include
     #    )
-    #set(_hdf5_libs
-    #    ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/build/lib/libhdf5_hl.so
-    #    ${CMAKE_SOURCE_DIR}/contrib/hdf5_local/build/lib/libhdf5.so
-    #    -ldl
-    #    )
-    set(HDF5_LIBRARIES)
-    #add_definitions( -DHDF5_LAYER  )
+    set(HDF5_LIBRARIES
+        ${CMAKE_SOURCE_DIR}/contrib/hdf5/install/lib/libhdf5_hl.so
+        ${CMAKE_SOURCE_DIR}/contrib/hdf5/install/lib/libhdf5.so
+        #-ldl
+        )
+    set(HDF5_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/contrib/hdf5/install/include)
+    #set(HDF5_LIBRARIES)
+    add_definitions( -DHDF5_LAYER  )
   endif()
 endif()
 
 
 
-### Check host OS: extra for fs detection
+### Check host OS
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
    # Mac OS X specific code

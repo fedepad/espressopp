@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
+#include <sys/vfs.h>
 
 
 #if OP_SYSTEM == OSX
@@ -36,7 +37,8 @@
 #endif
 
 #ifdef USING_LINUX
-#include <sys/vfs.h>
+	#include <sys/param.h>
+	#include <sys/mount.h>
 // end OSX
 #endif
 
@@ -84,9 +86,12 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
     MPI_Info_set(info, "romio_cb_read", "enable");
     MPI_Info_set(info, "romio_cb_write", "enable");
 
-    //printf("# writers: %s\n", aggregators);
+
     // collective buffering tuning
-    MPI_Info_set(info, "cb_nodes", (char*)aggregators);  // number of aggregators: how many MPI ranks perform the write...
+    //if (strcmp(aggregators, "0") != 0) {
+    	//MPI_Info_set(info, "cb_nodes", (char*)aggregators);  // number of aggregators: how many MPI ranks perform the write...
+    	MPI_Info_set(info, "cb_nodes", "automatic");  // number of aggregators: how many MPI ranks perform the write...
+    //}
     //MPI_Info_set(info, "cb_buffer_size", "disable"); //
 
 
@@ -94,9 +99,10 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
 
 
     //add my detection of fs...don't know where it went!!!!!
+    //H5Pset_libver_bounds(acc_template, H5F_LIBVER_18, H5F_LIBVER_18);
     H5Pset_fapl_mpio(acc_template, MPI_COMM_WORLD, info);
     file.id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, acc_template);
-    assert(file.id > 0);
+    //assert(file.id > 0);
 //    struct statfs filesystem_info;
 //	statfs(filename, &filesystem_info);
 //	if (filesystem_info.f_type == 0x0BD00BD0) {
@@ -148,7 +154,7 @@ h5md_file h5md_create_file (const char *filename, const char *author, const char
   if (NULL!=author_email) {
     t = H5Tcopy(H5T_C_S1);
     status = H5Tset_size(t, strlen(author_email));
-    a = H5Acreate(g1, "author_email", t, s, H5P_DEFAULT, H5P_DEFAULT);
+    a = H5Acreate(g1, "email", t, s, H5P_DEFAULT, H5P_DEFAULT);
     status = H5Awrite(a, t, author_email);
     status = H5Aclose(a);
     status = H5Tclose(t);
@@ -477,7 +483,7 @@ int h5md_extend_by_one(hid_t dset, hsize_t *dims) {
 
 }
 
-int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_id, int offset, int data_size, int shared_file) {
+int h5md_append(h5md_element e, void *data, int step, double time, int offset, int data_size, int shared_file) {
 
   hid_t mem_space, file_space;
   int i, rank;
@@ -486,6 +492,8 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
 
   // If not a time-dependent H5MD element, do nothing
   if (!e.is_time) return 0;
+    hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+    if (shared_file == 1) H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 
   if (NULL==e.link) {
     h5md_extend_by_one(e.step, dims);
@@ -505,6 +513,9 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
       start[i] = 0;
       count[i] = dims[i];
     }
+    // As done in #xxPR HDF5File
+    //hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+    //if (shared_file == 1) H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
     H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
     if (shared_file == 1) {
     	//H5Sselect_hyperslab(file_space, H5S_SELECT_SET, start, NULL, count, NULL);
@@ -578,6 +589,7 @@ int h5md_append(h5md_element e, void *data, int step, double time, hid_t plist_i
   }
   H5Sclose(file_space);
   H5Sclose(mem_space);
+  H5Pclose(plist_id);
 
   return 0;
 }

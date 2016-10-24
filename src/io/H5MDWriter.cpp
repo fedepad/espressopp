@@ -22,16 +22,8 @@
 // http://stackoverflow.com/questions/10056393/g-with-python-h-how-to-compile
 // http://realmike.org/blog/2012/07/08/embedding-python-tutorial-part-1/
 #include "H5MDWriter.hpp"  // keep python.hpp on top
-//#include "storage/Storage.hpp"
-//#include "System.hpp"
 #include "storage/DomainDecomposition.hpp"
-//#include "bc/BC.hpp"
-
 #include "iterator/CellListIterator.hpp"
-
-//#include "boost/mpi.hpp"
-//#include "boost/mpi/communicator.hpp"
-//#include "mpi.h"
 
 #include <fstream>
 #include <sstream>
@@ -50,18 +42,19 @@ namespace espressopp {
 	 // check if we need to sort the pids...
   if (sort_pids) sort_by_pid();
 
-	if (datas.position == 1 || datas.all == 1) 	  h5md_close_element(part_group.position);
-	if (datas.image == 1 || datas.all == 1) 	  h5md_close_element(part_group.image);
-	if (datas.pid == 1 || datas.all == 1) 		  h5md_close_element(part_group.id);
-	if (datas.type == 1 || datas.all == 1) 		  h5md_close_element(part_group.species);
-	if (datas.velocity == 1 || datas.all == 1) 	  h5md_close_element(part_group.velocity);
-	if (datas.force == 1 || datas.all == 1) 	  h5md_close_element(part_group.force);
-	if (datas.mass == 1 || datas.all == 1) 		  h5md_close_element(part_group.mass);
-	if (datas.charge == 1 || datas.all == 1) 	  h5md_close_element(part_group.charge);
-	if (datas.state == 1 || datas.all == 1) 	  h5md_close_element(part_group.state);
-	if (datas.drift == 1 || datas.all == 1) 	  h5md_close_element(part_group.drift);
-	if (datas.lambda == 1 || datas.all == 1)      h5md_close_element(part_group.lambda);
-	if (datas.lambdaDeriv == 1 || datas.all == 1) h5md_close_element(part_group.lambdaDeriv);
+  h5md_close_element(part_group.id);
+	if (STORE_OPTIONS & (IMAGE | POSITION | ALL)) 	  h5md_close_element(part_group.position);
+	if (STORE_OPTIONS & (IMAGE | ALL)) 	  h5md_close_element(part_group.image);
+	//if (STORE_OPTIONS & (PID | ALL)) 		  h5md_close_element(part_group.id);
+	if (STORE_OPTIONS & (TYPE | ALL)) 		  h5md_close_element(part_group.species);
+	if (STORE_OPTIONS & (VELOCITY | ALL)) 	  h5md_close_element(part_group.velocity);
+	if (STORE_OPTIONS & (FORCE | ALL)) 	  h5md_close_element(part_group.force);
+	if (STORE_OPTIONS & (MASS | ALL)) 		  h5md_close_element(part_group.mass);
+	if (STORE_OPTIONS & (CHARGE | ALL)) 	  h5md_close_element(part_group.charge);
+	if (STORE_OPTIONS & (STATE | ALL)) 	  h5md_close_element(part_group.state);
+	if (STORE_OPTIONS & (DRIFT | ALL)) 	  h5md_close_element(part_group.drift);
+	if (STORE_OPTIONS & (LAMBDA | ALL))      h5md_close_element(part_group.lambda);
+	if (STORE_OPTIONS & (LAMBDADERIV | ALL)) h5md_close_element(part_group.lambdaDeriv);
 	h5md_close_element(part_group.box_edges);
 	H5Gclose(part_group.group);
 	h5md_close_file(ilfile);
@@ -69,8 +62,11 @@ namespace espressopp {
   }
 
   void H5MDWriter::flush_file_stable_storage() {
-	  // move here flush to stable storage to avoid corruptions: relies on the OS to actually flush dirty buffers
-	  H5Fflush(ilfile.id, H5F_SCOPE_GLOBAL);
+
+	  // move here flush to stable storage to avoid corruptions
+	  //H5Fflush()
+
+
   }
 
 
@@ -81,11 +77,11 @@ namespace espressopp {
 	int rank = system->comm->rank();
 	int mpi_ranks = system->comm->size();
 	int myN = system->storage->getNRealParticles();
-	int maxN;   // maximal number of particles one processor has
-	int totalN; // total number of particles all processors have
+	//int maxN;   // maximal number of particles one processor has
+	//int totalN; // total number of particles all processors have
 
-	boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
-	boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace: flaw if totalN changes, should move the dataspace creation here, in the write routine
+	//boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
+	//boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace: flaw if totalN changes, should move the dataspace creation here, in the write routine
 
 	int* array_nparticles = new int [mpi_ranks];   // to write contiguous in file
 
@@ -97,8 +93,8 @@ namespace espressopp {
 
 	int RANK = 2;
 
-	size_t* pids = new size_t [myN];
-	size_t* types = new size_t [myN];
+	int* pids = new int [myN];
+	int* types = new int [myN];
 	double* coordina = new double [myN*3];
 	int* images = new int [myN*3];
 	double* velocities = new double [myN*3];
@@ -110,165 +106,79 @@ namespace espressopp {
 	double* lambdaDerivs = new double [myN];
 	int* states = new int [myN];
 
-
 	CellList realCells = system->storage->getRealCells();
-
 	int i = 0;
-	assert( i == 0);
-
-	  if( unfolded ){
+	//assert( i == 0);
+	if (unfolded) {
 		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
 
-		  //if (datas.pid == 1 || datas.all == 1) { // always pids
-			  pids[i] = cit->id();
+			Real3D& pos = cit->position();
+			Int3D& img = cit->image();
+			Real3D& vel = cit->velocity();
+			Real3D& force = cit->force();
+			pids[i] = cit->id();
+			types[i] = cit->type();
+			masses[i] = cit->mass();
+			states[i] = cit->state();
+			drifts[i] = cit->drift();
+			charges[i] = cit->q();
+			lambdas[i] = cit->lambda();
+			velocities[i*3]   = vel[0];
+			velocities[i*3+1] = vel[1];
+			velocities[i*3+2] = vel[2];
+			forces[i*3]   = force[0];
+			forces[i*3+1] = force[1];
+			forces[i*3+2] = force[2];
+			coordina[i*3]   = pos[0] + img[0] * L[0];
+			coordina[i*3+1] = pos[1] + img[1] * L[1];
+			coordina[i*3+2] = pos[2] + img[2] * L[2];
+			images[i*3]   = img[0];
+			images[i*3+1] = img[1];
+			images[i*3+2] = img[2];
 
-		  //}
-		  if (datas.position == 1 || datas.all == 1) {
-			  Real3D& pos = cit->position();
-			  Int3D& img = cit->image();
-
-			  coordina[i*3]   = pos[0] + img[0] * L[0];
-			  coordina[i*3+1] = pos[1] + img[1] * L[1];
-			  coordina[i*3+2] = pos[2] + img[2] * L[2];
-		  }
-		  if (datas.image == 1 || datas.all == 1) {
-		  		  Int3D& img = cit->image();
-		  		  images[i*3]   = img[0];
-		  		  images[i*3+1] = img[1];
-		  		  images[i*3+2] = img[2];
-		  }
-		  if (datas.velocity == 1 || datas.all == 1) {
-			  Real3D& vel = cit->velocity();
-
-			  velocities[i*3]   = vel[0];
-			  velocities[i*3+1] = vel[1];
-			  velocities[i*3+2] = vel[2];
-		  }
-
-		  if (datas.type == 1 || datas.all == 1) {
-
-			  types[i] = cit->type();
-		  }
-		  if (datas.force == 1 || datas.all == 1) {
-			  Real3D& force = cit->force();
-
-			  forces[i*3]   = force[0];
-			  forces[i*3+1] = force[1];
-			  forces[i*3+2] = force[2];
-		  }
-		  if (datas.mass == 1 || datas.all == 1) {
-
-			  masses[i] = cit->mass();
-		  }
-		  if (datas.state == 1) {
-
-			  states[i] = cit->state();
-		  }
-
-		  if (datas.drift == 1 || datas.all == 1) {
-
-			  drifts[i] = cit->drift();
-		  }
-
-		  if (datas.charge == 1 || datas.all == 1) {
-
-			  charges[i] = cit->q();
-		  }
-
-		  if (datas.lambda == 1 || datas.all == 1) {
-
-			  lambdas[i] = cit->lambda();
-		  }
-
-		  if (datas.lambdaDeriv == 1 || datas.all == 1) {
-
-			  lambdaDerivs[i] = cit->lambdaDeriv();
-		  }
-
-		  i++;
-		}
+			++i;
 	  }
-	  else{
+	  //i++;
+	  //++i;
+	} else {
 		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
 
-		  //if (datas.pid == 1 || datas.all == 1) { //always pids
-			  pids[i] = cit->id();
+			Real3D& pos = cit->position();
+			Int3D& img = cit->image();
+			Real3D& vel = cit->velocity();
+			Real3D& force = cit->force();
+			pids[i] = cit->id();
+			types[i] = cit->type();
+			masses[i] = cit->mass();
+			states[i] = cit->state();
+			drifts[i] = cit->drift();
+			charges[i] = cit->q();
+			lambdas[i] = cit->lambda();
+			velocities[i*3]   = vel[0];
+			velocities[i*3+1] = vel[1];
+			velocities[i*3+2] = vel[2];
+			forces[i*3]   = force[0];
+			forces[i*3+1] = force[1];
+			forces[i*3+2] = force[2];
+			coordina[i*3]   = pos[0];
+			coordina[i*3+1] = pos[1];
+			coordina[i*3+2] = pos[2];
+			images[i*3]   = img[0];
+			images[i*3+1] = img[1];
+			images[i*3+2] = img[2];
 
-		  //}
-		  if (datas.position == 1 || datas.all == 1) {
-			  Real3D& pos = cit->position();
-
-			  coordina[i*3]   = pos[0];
-			  coordina[i*3+1] = pos[1];
-			  coordina[i*3+2] = pos[2];
-		  }
-		  if (datas.image == 1 || datas.all == 1) {
-			  Int3D& img = cit->image();
-			  images[i*3]   = img[0];
-			  images[i*3+1] = img[1];
-			  images[i*3+2] = img[2];
-		  }
-		  if (datas.velocity == 1 || datas.all == 1) {
-			  Real3D& vel = cit->velocity();
-
-				velocities[i*3]   = vel[0];
-				velocities[i*3+1] = vel[1];
-				velocities[i*3+2] = vel[2];
-
-		  }
-
-		  if (datas.type == 1 || datas.all == 1) {
-
-			  types[i] = cit->type();
-		  }
-		  if (datas.force == 1 || datas.all == 1) {
-			  Real3D& force = cit->force();
-
-			  forces[i*3]   = force[0];
-			  forces[i*3+1] = force[1];
-			  forces[i*3+2] = force[2];
-		  }
-		  if (datas.mass == 1 || datas.all == 1) {
-
-			  masses[i] = cit->mass();
-		  }
-		  if (datas.state == 1 || datas.all == 1) {
-
-			  states[i] = cit->state();
-		  }
-
-		  if (datas.drift == 1 || datas.all == 1) {
-
-			  drifts[i] = cit->drift();
-		  }
-
-		  if (datas.charge == 1 || datas.all == 1) {
-
-			  charges[i] = cit->q();
-		  }
-
-		  if (datas.lambda == 1 || datas.all == 1) {
-
-			  lambdas[i] = cit->lambda();
-		  }
-
-		  if (datas.lambdaDeriv == 1 || datas.all == 1) {
-
-			  lambdaDerivs[i] = cit->lambdaDeriv();
-		  }
-
-		  i++;
+			++i;
 		}
-	  }
+		//++i;
+	}
 
-//
 
 	  	hsize_t count[RANK]; // not used, directly pass myN
 		hsize_t offset[RANK];
 
 	  	// As done in #xxPR HDF5File
-	  	hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
-	  	H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
+	  	//hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
+	  	//H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
 
         // logic to write a file contiguously!
 		int sumup = 0;
@@ -285,20 +195,21 @@ namespace espressopp {
 
 		offset[0] = 0;
 
-	if (datas.position == 1  || datas.all == 1)   			 h5md_append(part_group.position, coordina, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.image == 1  || datas.all == 1)   				 h5md_append(part_group.image, images, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.pid == 1  || datas.all == 1)        			 h5md_append(part_group.id, pids, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.type == 1 || datas.all == 1)     	  			 h5md_append(part_group.species, types, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.velocity == 1 || datas.all == 1) 	  			 h5md_append(part_group.velocity, velocities, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.mass == 1 || datas.all == 1)     	  			 h5md_append(part_group.mass, masses, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.charge == 1 || datas.all == 1)   	 			 h5md_append(part_group.charge, charges, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.state == 1 || datas.all == 1)    	  			 h5md_append(part_group.state, states, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.drift == 1 || datas.all == 1)       			 h5md_append(part_group.drift, drifts, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.force == 1 || datas.all == 1)       			 h5md_append(part_group.force, forces, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.lambda == 1 || datas.all == 1)      			 h5md_append(part_group.lambda, lambdas, step, time_, plist_id, offset[1], myN, 1);
-	if (datas.lambdaDeriv == 1 || datas.all == 1) 			 h5md_append(part_group.lambdaDeriv, lambdaDerivs, step, time_, plist_id, offset[1], myN, 1);
+	h5md_append(part_group.id, pids, step, time_, offset[1], myN, 1); // always write pids
+	if (STORE_OPTIONS & (IMAGE | POSITION | ALL))   	 h5md_append(part_group.position, coordina, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (IMAGE | ALL))   				 h5md_append(part_group.image, images, step, time_, offset[1], myN, 1);
+	//if (STORE_OPTIONS & (PID | ALL))        			 h5md_append(part_group.id, pids, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (TYPE | ALL))     	  			 h5md_append(part_group.species, types, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (VELOCITY | ALL)) 	  			 h5md_append(part_group.velocity, velocities, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (MASS | ALL))     	  			 h5md_append(part_group.mass, masses, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (CHARGE | ALL))   	 			 h5md_append(part_group.charge, charges, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (STATE | ALL))    	  			 h5md_append(part_group.state, states, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (DRIFT | ALL))       			 h5md_append(part_group.drift, drifts, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (FORCE | ALL))       			 h5md_append(part_group.force, forces, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (LAMBDA | ALL))      			 h5md_append(part_group.lambda, lambdas, step, time_, offset[1], myN, 1);
+	if (STORE_OPTIONS & (LAMBDADERIV | ALL)) 			 h5md_append(part_group.lambdaDeriv, lambdaDerivs, step, time_, offset[1], myN, 1);
 
-  	H5Pclose(plist_id);
+  	//H5Pclose(plist_id);
 
 	delete [] array_nparticles;
 	delete [] pids;
@@ -326,11 +237,11 @@ namespace espressopp {
     	int rank = system->comm->rank();
     	int mpi_ranks = system->comm->size();
     	int myN = system->storage->getNRealParticles();
-    	int maxN;   // maximal number of particles one processor has
-    	int totalN; // total number of particles all processors have
+    	//int maxN;   // maximal number of particles one processor has
+    	//int totalN; // total number of particles all processors have
 
-    	boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
-    	boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace: flaw if totalN changes, should move the dataspace creation here, in the write routine
+    	//boost::mpi::all_reduce(*system->comm, myN, maxN, boost::mpi::maximum<int>());
+    	//boost::mpi::all_reduce(*system->comm, myN, totalN, std::plus<int>());  // to create the dataspace: flaw if totalN changes, should move the dataspace creation here, in the write routine
 
     	int* array_nparticles = new int [mpi_ranks];   // to write contiguous in file
 
@@ -342,8 +253,8 @@ namespace espressopp {
 
     	int RANK = 2;
 
-    	size_t* pids = new size_t [myN];
-    	size_t* types = new size_t [myN];
+    	int* pids = new int [myN];
+    	int* types = new int [myN];
     	double* coordina = new double [myN*3];
     	int* images = new int [myN*3];
     	double* velocities = new double [myN*3];
@@ -359,16 +270,14 @@ namespace espressopp {
     	CellList realCells = system->storage->getRealCells();
 
     	int i = 0;
-    	assert( i == 0);
+    	//assert( i == 0);
 
     	  if( unfolded ){
     		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
 
-    		  //if (datas.pid == 1 || datas.all == 1) { // always pids
     			  pids[i] = cit->id();
 
-    		  //}
-    		  if (datas.image == 1 || datas.position == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (POSITION | IMAGE | ALL)) {
     			  Real3D& pos = cit->position();
     			  Int3D& img = cit->image();
 
@@ -376,13 +285,14 @@ namespace espressopp {
     			  coordina[i*3+1] = pos[1] + img[1] * L[1];
     			  coordina[i*3+2] = pos[2] + img[2] * L[2];
     		  }
-    		  if (datas.image == 1 || datas.all == 1) {
-				  Int3D& img = cit->image();
-				  images[i*3]   = img[0];
-				  images[i*3+1] = img[1];
-				  images[i*3+2] = img[2];
-			  }
-    		  if (datas.velocity == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (IMAGE | ALL)) {
+			  Int3D& img = cit->image();
+
+			  images[i*3]   = img[0];
+			  images[i*3+1] = img[1];
+			  images[i*3+2] = img[2];
+		  }
+    		  if (STORE_OPTIONS & (VELOCITY | ALL)) {
     			  Real3D& vel = cit->velocity();
 
     			  velocities[i*3]   = vel[0];
@@ -390,42 +300,42 @@ namespace espressopp {
     			  velocities[i*3+2] = vel[2];
     		  }
 
-    		  if (datas.type == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (TYPE | ALL)) {
 
     			  types[i] = cit->type();
     		  }
-    		  if (datas.force == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (FORCE | ALL)) {
     			  Real3D& force = cit->force();
 
     			  forces[i*3]   = force[0];
     			  forces[i*3+1] = force[1];
     			  forces[i*3+2] = force[2];
     		  }
-    		  if (datas.mass == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (MASS | ALL)) {
 
     			  masses[i] = cit->mass();
     		  }
-    		  if (datas.state == 1) {
+    		  if (STORE_OPTIONS & (STATE | ALL)) {
 
     			  states[i] = cit->state();
     		  }
 
-    		  if (datas.drift == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (DRIFT | ALL)) {
 
     			  drifts[i] = cit->drift();
     		  }
 
-    		  if (datas.charge == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (CHARGE | ALL)) {
 
     			  charges[i] = cit->q();
     		  }
 
-    		  if (datas.lambda == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (LAMBDA | ALL)) {
 
     			  lambdas[i] = cit->lambda();
     		  }
 
-    		  if (datas.lambdaDeriv == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (LAMBDADERIV | ALL)) {
 
     			  lambdaDerivs[i] = cit->lambdaDeriv();
     		  }
@@ -436,68 +346,67 @@ namespace espressopp {
     	  else{
     		for(iterator::CellListIterator cit(realCells); !cit.isDone(); ++cit) {
 
-    		  //if (datas.pid == 1 || datas.all == 1) { //always pids
     			  pids[i] = cit->id();
 
-    		  //}
-    		  if (datas.image == 1 || datas.position == 1 || datas.all == 1) {
-    		  Real3D& pos = cit->position();
+    		  if (STORE_OPTIONS & (POSITION | IMAGE | ALL)) {
+    		  	Real3D& pos = cit->position();
 
-    		  coordina[i*3]   = pos[0];
-    		  coordina[i*3+1] = pos[1];
-    		  coordina[i*3+2] = pos[2];
+    		  	coordina[i*3]   = pos[0];
+    		  	coordina[i*3+1] = pos[1];
+    		  	coordina[i*3+2] = pos[2];
     		  }
-    		  if (datas.image == 1 || datas.all == 1) {
-				  Int3D& img = cit->image();
-				  images[i*3]   = img[0];
-				  images[i*3+1] = img[1];
-				  images[i*3+2] = img[2];
-			  }
-    		  if (datas.velocity == 1 || datas.all == 1) {
-    			  Real3D& vel = cit->velocity();
+    		  if (STORE_OPTIONS & (IMAGE | ALL)) {
+			Int3D& img = cit->image();
 
-    				velocities[i*3]   = vel[0];
-    				velocities[i*3+1] = vel[1];
-    				velocities[i*3+2] = vel[2];
+			images[i*3]   = img[0];
+			images[i*3+1] = img[1];
+			images[i*3+2] = img[2];
+		  }
+    		  if (STORE_OPTIONS & (VELOCITY | ALL)) {
+    			Real3D& vel = cit->velocity();
+
+    			velocities[i*3]   = vel[0];
+    			velocities[i*3+1] = vel[1];
+    			velocities[i*3+2] = vel[2];
 
     		  }
 
-    		  if (datas.type == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (TYPE | ALL)) {
 
     			  types[i] = cit->type();
     		  }
-    		  if (datas.force == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (FORCE | ALL)) {
     			  Real3D& force = cit->force();
 
     			  forces[i*3]   = force[0];
     			  forces[i*3+1] = force[1];
     			  forces[i*3+2] = force[2];
     		  }
-    		  if (datas.mass == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (MASS | ALL)) {
 
     			  masses[i] = cit->mass();
     		  }
-    		  if (datas.state == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (STATE | ALL)) {
 
     			  states[i] = cit->state();
     		  }
 
-    		  if (datas.drift == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (DRIFT | ALL)) {
 
     			  drifts[i] = cit->drift();
     		  }
 
-    		  if (datas.charge == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (CHARGE | ALL)) {
 
     			  charges[i] = cit->q();
     		  }
 
-    		  if (datas.lambda == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (LAMBDA | ALL)) {
 
     			  lambdas[i] = cit->lambda();
     		  }
 
-    		  if (datas.lambdaDeriv == 1 || datas.all == 1) {
+    		  if (STORE_OPTIONS & (LAMBDADERIV | ALL)) {
 
     			  lambdaDerivs[i] = cit->lambdaDeriv();
     		  }
@@ -509,10 +418,6 @@ namespace espressopp {
 		hsize_t count[RANK]; // not used, directly pass myN
 		hsize_t offset[RANK];
 
-		// As done in #xxPR HDF5File
-		hid_t plist_id = H5Pcreate(H5P_DATASET_XFER);
-		//H5Pset_dxpl_mpio(plist_id, H5FD_MPIO_COLLECTIVE);
-
 		// logic to write a file contiguously!
 		int sumup = 0;
 		if (rank == 0) {
@@ -523,25 +428,23 @@ namespace espressopp {
 				sumup += array_nparticles[L];
 			}
 
-			offset[1] = sumup;
+		offset[1] = sumup;
 		}
 
-		offset[0] = 0;
+	if (STORE_OPTIONS & (POSITION | ALL))   			 h5md_append(part_group.position, coordina, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (IMAGE | ALL))   				 h5md_append(part_group.image, images, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (PID | ALL))        			 h5md_append(part_group.id, pids, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (TYPE | ALL))     	  			 h5md_append(part_group.species, types, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (VELOCITY | ALL)) 	  			 h5md_append(part_group.velocity, velocities, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (MASS | ALL))     	  			 h5md_append(part_group.mass, masses, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (CHARGE | ALL))   	 			 h5md_append(part_group.charge, charges, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (STATE | ALL))    	  			 h5md_append(part_group.state, states, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (DRIFT | ALL))       			 h5md_append(part_group.drift, drifts, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (FORCE | ALL))       			 h5md_append(part_group.force, forces, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (LAMBDA | ALL))      			 h5md_append(part_group.lambda, lambdas, step, time_, offset[1], myN, 0);
+	if (STORE_OPTIONS & (LAMBDADERIV | ALL)) 			 h5md_append(part_group.lambdaDeriv, lambdaDerivs, step, time_, offset[1], myN, 0);
 
-    	if (datas.image == 1 || datas.position == 1  || datas.all == 1) 	h5md_append(part_group.position, coordina, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.image == 1  || datas.all == 1)   				 			h5md_append(part_group.image, images, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.pid == 1  || datas.all == 1)        			 			h5md_append(part_group.id, pids, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.type == 1 || datas.all == 1)     	  			 			h5md_append(part_group.species, types, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.velocity == 1 || datas.all == 1) 	  			 			h5md_append(part_group.velocity, velocities, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.mass == 1 || datas.all == 1)     	  			 			h5md_append(part_group.mass, masses, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.charge == 1 || datas.all == 1)   	 			 			h5md_append(part_group.charge, charges, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.state == 1 || datas.all == 1)    	  			 			h5md_append(part_group.state, states, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.drift == 1 || datas.all == 1)       			 			h5md_append(part_group.drift, drifts, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.force == 1 || datas.all == 1)       			 			h5md_append(part_group.force, forces, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.lambda == 1 || datas.all == 1)      			 			h5md_append(part_group.lambda, lambdas, step, time_, plist_id, offset[1], myN, 0);
-    	if (datas.lambdaDeriv == 1 || datas.all == 1) 			 			h5md_append(part_group.lambdaDeriv, lambdaDerivs, step, time_, plist_id, offset[1], myN, 0);
-
-      	H5Pclose(plist_id);
+      	//H5Pclose(plist_id);
 
     	delete [] array_nparticles;
     	delete [] pids;
@@ -560,13 +463,12 @@ namespace espressopp {
 
 
 
-    void H5MDWriter::write(){
+    void H5MDWriter::write() {
 
-    	int iomodus = getIomode();
-    	if (iomodus == 1 || iomodus == 0) {
+    	if (iomode == 1 || iomode == 0) {
     		write_n_to_1();
-		} else if (iomodus == 2) {
-			write_n_to_n();
+    	} else if (iomode == 2) {
+		write_n_to_n();
 		}
     }
 
@@ -577,52 +479,49 @@ namespace espressopp {
       using namespace espressopp::python;
 
       class_<H5MDWriter, bases<ParticleAccess>, boost::noncopyable >
-      ("io_H5MDWriter", init< shared_ptr< System >,
-                           shared_ptr< integrator::MDIntegrator >,
-                           std::string,
-						   std::string,
-					       std::string,
-						   std::string,
-						   std::string,
-						   int,
-                           boost::python::list,
-                           bool,
-                           real,
-                           std::string,
-						   bool,
-                           bool,
-						   int>())
+      ("io_H5MDWriter", init< const shared_ptr< System >&,
+                           const shared_ptr< integrator::MDIntegrator >&,
+                           const std::string&,
+			   const std::string&,
+			   const std::string&,
+			   const std::string&,
+			   const std::string&,
+			   const int&,
+                           const boost::python::list&,
+                           const bool&,
+                           const real&,
+                           const std::string&,
+			   const bool&,
+                           const bool&,
+			   const int&>())
         .add_property("filename", &H5MDWriter::getFilename,
                                   &H5MDWriter::setFilename)
-	    .add_property("author", &H5MDWriter::getAuthor,
-								  &H5MDWriter::setAuthor)
-	    .add_property("author_email", &H5MDWriter::getAuthorEmail,
-								  &H5MDWriter::setAuthorEmail)
-	    .add_property("creator", &H5MDWriter::getCreator,
-								  &H5MDWriter::setCreator)
-		.add_property("creator_version", &H5MDWriter::getCreatorVersion,
-								  &H5MDWriter::setCreatorVersion)
-	    .add_property("iomode", &H5MDWriter::getIomode,
-								&H5MDWriter::setIomode)
-		.add_property("data_to_store", &H5MDWriter::getDataToStore,
-										&H5MDWriter::set_init_table)
-
+	.add_property("author", &H5MDWriter::getAuthor,
+				  &H5MDWriter::setAuthor)
+	.add_property("author_email", &H5MDWriter::getAuthorEmail,
+				  &H5MDWriter::setAuthorEmail)
+	.add_property("creator", &H5MDWriter::getCreator,
+				  &H5MDWriter::setCreator)
+	.add_property("creator_version", &H5MDWriter::getCreatorVersion,
+					  &H5MDWriter::setCreatorVersion)
+	.add_property("iomode", &H5MDWriter::getIomode,
+				&H5MDWriter::setIomode)
+	.add_property("data_to_store", &H5MDWriter::getDataToStore,
+					&H5MDWriter::set_init_table)
         .add_property("unfolded", &H5MDWriter::getUnfolded,
                                   &H5MDWriter::setUnfolded)
         .add_property("length_factor", &H5MDWriter::getLengthFactor,
                                        &H5MDWriter::setLengthFactor)
-
         .add_property("length_unit", &H5MDWriter::getLengthUnit,
                                      &H5MDWriter::setLengthUnit)
-		 .add_property("sort_pids", &H5MDWriter::getSortPids,
-									  &H5MDWriter::setSortPids)
+	.add_property("sort_pids", &H5MDWriter::getSortPids,
+				  &H5MDWriter::setSortPids)
         .add_property("append", &H5MDWriter::getAppend,
-                                  &H5MDWriter::setAppend)
-	    .add_property("writers", &H5MDWriter::getAggregators,
-									&H5MDWriter::setAggregators)
-
+                                 &H5MDWriter::setAppend)
+	.add_property("writers", &H5MDWriter::getAggregators,
+				&H5MDWriter::setAggregators)
         .def("dump", &H5MDWriter::write)
-		.def("close", &H5MDWriter::close)
+	.def("close", &H5MDWriter::close)
       ;
     }
   }
